@@ -1,4 +1,4 @@
-# ♻ LoopNZ
+# ♻ Waste Opportunities
 
 **An AI-powered marketplace that matches New Zealand primary-industry waste producers with the people who can turn that waste into something useful.**
 
@@ -60,7 +60,7 @@ problem. And matching is exactly what AI is good at.
 | **UN Goals** | Which Sustainable Development Goals this addresses, down to the specific target numbers, with live metrics |
 | **Dashboard** | Your listings, shortlist, and enquiries. Accepting an enquiry records a real diversion, which feeds the Impact page |
 
-Plus **Kōwhai**, the AI assistant, available on every page.
+Plus the **AI Assistant**, available on every page.
 
 ---
 
@@ -69,7 +69,7 @@ Plus **Kōwhai**, the AI assistant, available on every page.
 Most AI features in hackathon projects are a chat box bolted to the side of an app. This
 one is wired into the product.
 
-Kōwhai has **thirteen tools**, split into two kinds:
+The AI Assistant has **thirteen tools**, split into two kinds:
 
 **Data tools** run on the server against the real database. The AI genuinely searches the
 listings, reads the real statistics, and creates real records. It cannot invent a listing.
@@ -121,9 +121,28 @@ no credit card required.
    npm run check-ai
    ```
 
-`check-ai` reports which provider is active, lists the model names your key can actually
-use, and sends one real message through the full tool loop — so you find out about a
-problem there rather than during your pitch.
+`check-ai` reports which provider is active, tests each model with a real request, tells
+you roughly how many chat messages you have left today, and pushes one message through the
+full tool loop — so you find out about a problem there rather than during your pitch.
+
+### ⚠ Free tier daily limits — read this before demo day
+
+Google's free tier allows roughly **20 requests per day, per model**. One chat message
+costs 2–3 requests, because the AI calls tools before answering. So a single model is worth
+about **7 messages a day**.
+
+Waste Opportunities works around this by **rotating models automatically**: when one runs out of quota,
+it transparently moves to the next (`gemini-flash-latest` → `gemini-3-flash-preview` →
+`gemini-flash-lite-latest` → `gemini-3.1-flash-lite-preview`). That gives you roughly
+**28 messages a day**. Quotas reset daily.
+
+Practical advice:
+
+- Run `npm run check-ai` before your pitch to see what's left.
+- Don't burn the allowance testing on the morning of the demo.
+- If you do run dry, the offline assistant still drives the whole site — the demo
+  degrades rather than dies.
+- `WASTEOPS_EFFORT=low` makes replies noticeably faster (~4.5s vs ~8s per message).
 
 The badge in the top-right corner shows which brain is answering: **GEMINI** or **CLAUDE**
 (green) when a provider is live, **DEMO AI** (amber) for the offline assistant.
@@ -138,7 +157,7 @@ npm install                       # the Claude provider needs the Anthropic SDK
 ```
 ```
 ANTHROPIC_API_KEY=sk-ant-...
-LOOPNZ_PROVIDER=claude            # only needed if a Gemini key is also present
+WASTEOPS_PROVIDER=claude            # only needed if a Gemini key is also present
 ```
 
 ### Configuration
@@ -148,14 +167,14 @@ All optional, all in `.env`:
 | Setting | Default | Notes |
 |---|---|---|
 | `GEMINI_API_KEY` | *(none)* | Free key from AI Studio. Also accepts `GOOGLE_API_KEY` |
-| `LOOPNZ_GEMINI_MODEL` | `gemini-2.5-flash` | Try `gemini-2.5-pro` for more capability. Run `npm run check-ai` to see valid names |
+| `WASTEOPS_GEMINI_MODEL` | `gemini-flash-latest` | Rarely needed — Waste Opportunities auto-rotates on quota exhaustion. `gemini-flash-lite-latest` is ~3x faster |
 | `ANTHROPIC_API_KEY` | *(none)* | Paid. Only needed for the Claude provider |
-| `LOOPNZ_CLAUDE_MODEL` | `claude-sonnet-5` | `claude-opus-5` is more capable, ~2.5× the cost |
-| `LOOPNZ_EFFORT` | `medium` | Claude only. `low` for snappier demo replies |
-| `LOOPNZ_PROVIDER` | *(auto)* | Force one: `gemini`, `claude`, or `offline` |
+| `WASTEOPS_CLAUDE_MODEL` | `claude-sonnet-5` | `claude-opus-5` is more capable, ~2.5× the cost |
+| `WASTEOPS_EFFORT` | `medium` | Both providers. `low` for snappier demo replies (~4.5s vs ~8s) |
+| `WASTEOPS_PROVIDER` | *(auto)* | Force one: `gemini`, `claude`, or `offline` |
 | `PORT` | `3000` | Change if 3000 is taken |
 
-With no `LOOPNZ_PROVIDER` set, LoopNZ picks the first provider that has a key: Gemini,
+With no `WASTEOPS_PROVIDER` set, Waste Opportunities picks the first provider that has a key: Gemini,
 then Claude, then the offline assistant.
 
 ### Adding another provider
@@ -315,7 +334,7 @@ most common cause is editing `.env.example` instead of `.env`; the app only read
 
 **"Gemini model ... was not found"**
 Model names change over time. Run `npm run check-ai` to list the ones your key can use,
-then set `LOOPNZ_GEMINI_MODEL` in `.env` to one of them.
+then set `WASTEOPS_GEMINI_MODEL` in `.env` to one of them.
 
 **"Gemini rejected the request (400)"**
 Usually a tool-schema problem — Gemini accepts only a subset of JSON Schema. See

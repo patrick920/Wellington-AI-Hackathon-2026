@@ -5,7 +5,7 @@
  *
  * Gemini is the default because it has a free tier (see providers/gemini.js).
  * Use this one if you have Anthropic API credits: set ANTHROPIC_API_KEY in .env
- * and either remove GEMINI_API_KEY or set LOOPNZ_PROVIDER=claude.
+ * and either remove GEMINI_API_KEY or set WASTEOPS_PROVIDER=claude.
  *
  * Unlike the Gemini provider, this uses the official SDK (`@anthropic-ai/sdk`),
  * so it needs `npm install` to have been run. The import is dynamic, so a
@@ -20,10 +20,12 @@ export const keyUrl = 'https://console.anthropic.com/settings/keys';
 /**
  * Which Claude model to use.
  * `claude-sonnet-5` is the cost-effective choice; `claude-opus-5` is the most
- * capable. LOOPNZ_MODEL is still honoured as a legacy name for this setting.
+ * capable. The older LOOPNZ_* names are still honoured, so an existing .env
+ * written before the rename keeps working.
  */
 export function model() {
-  return process.env.LOOPNZ_CLAUDE_MODEL || process.env.LOOPNZ_MODEL || 'claude-sonnet-5';
+  return process.env.WASTEOPS_CLAUDE_MODEL || process.env.LOOPNZ_CLAUDE_MODEL
+      || process.env.WASTEOPS_MODEL || process.env.LOOPNZ_MODEL || 'claude-sonnet-5';
 }
 
 /**
@@ -31,7 +33,7 @@ export function model() {
  *   low = snappiest (good for a live demo), medium = balanced, high = thorough.
  */
 export function effort() {
-  return process.env.LOOPNZ_EFFORT || 'medium';
+  return process.env.WASTEOPS_EFFORT || process.env.LOOPNZ_EFFORT || 'medium';
 }
 
 export function apiKey() {
@@ -160,8 +162,27 @@ export async function runTurn({ system, tools, history, userMessage, runTool, ma
     messages.push({ role: 'user', content: toolResults });
   }
 
+  // Out of iterations. One more call with `tools` removed forces the model to
+  // answer from what it already gathered instead of apologising. See the same
+  // comment in providers/gemini.js for why this matters.
+  try {
+    const response = await anthropic.messages.create({
+      model: model(),
+      max_tokens: 4000,
+      system: system + '\n\nYou have gathered enough information. Answer the user now, ' +
+              'using the tool results already in this conversation. Do not ask for more tools.',
+      output_config: { effort: effort() },
+      messages
+    });
+    const text = response.content
+      .filter(block => block.type === 'text').map(block => block.text).join('\n').trim();
+    if (text) return { reply: text, actions, toolsUsed };
+  } catch (err) {
+    console.log('[ai] Final no-tools Claude call failed:', err.message);
+  }
+
   return {
-    reply: 'I looked into that but ran out of steps before finishing. Could you narrow the question slightly?',
+    reply: 'I found some results and updated the page, but ran out of steps before writing them up. Ask me again and I can summarise.',
     actions,
     toolsUsed
   };

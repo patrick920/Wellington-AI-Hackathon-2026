@@ -26,7 +26,7 @@ export const impactPage = {
       h('div', { class: 'page' },
         h('div', { class: 'page-head' },
           h('div', { class: 'eyebrow' }, 'Impact'),
-          h('h1', { style: { fontSize: '2rem' } }, 'What LoopNZ is actually saving'),
+          h('h1', { style: { fontSize: '2rem' } }, 'What Waste Opportunities is actually saving'),
           h('p', { class: 'lede' },
             'Two sets of numbers, kept deliberately separate: what has already been diverted through completed ' +
             'matches, and what is sitting on the marketplace waiting for a taker.')
@@ -44,8 +44,8 @@ export const impactPage = {
         h('div', { class: 'center', style: { marginTop: '2rem' } },
           h('button', {
             class: 'btn btn-primary btn-lg',
-            onclick: () => sendMessage('Walk me through the impact numbers on LoopNZ. Which industry is contributing most, and where is the biggest untapped opportunity?')
-          }, '✦ Have Kōwhai explain these numbers')
+            onclick: () => sendMessage('Walk me through the impact numbers on Waste Opportunities. Which industry is contributing most, and where is the biggest untapped opportunity?')
+          }, '✦ Have the AI Assistant explain these numbers')
         )
       )
     );

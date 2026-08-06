@@ -26,7 +26,7 @@ export const browsePage = {
           h('h1', { style: { fontSize: '2rem' } }, 'Browse available waste'),
           h('p', { class: 'lede' },
             'Everything currently available across Aotearoa. Filter by material, industry, region and distance — ' +
-            'or ask Kōwhai to do it for you.')
+            'or ask the AI Assistant to do it for you.')
         ),
         filterBar(() => runSearch(resultsEl, countEl)),
         highlightBanner(),
@@ -35,9 +35,9 @@ export const browsePage = {
           h('button', {
             class: 'btn btn-ghost btn-sm',
             onclick: () => sendMessage(
-              `I'm browsing the LoopNZ marketplace${state.filters.query ? ` for "${state.filters.query}"` : ''}` +
+              `I'm browsing the Waste Opportunities marketplace${state.filters.query ? ` for "${state.filters.query}"` : ''}` +
               `${state.filters.region ? ` near ${state.filters.region}` : ''}. Help me narrow it down — ask me what I need it for.`)
-          }, '✦ Ask Kōwhai to narrow this down')
+          }, '✦ Ask the AI Assistant to narrow this down')
         ),
         resultsEl
       )
@@ -56,7 +56,7 @@ function highlightBanner() {
   },
     h('div', { class: 'spread' },
       h('div', {},
-        h('strong', {}, '✦ Kōwhai shortlisted ', String(state.highlighted.length), ' listing',
+        h('strong', {}, '✦ AI Assistant shortlisted ', String(state.highlighted.length), ' listing',
           state.highlighted.length === 1 ? '' : 's'),
         state.highlightNote ? h('div', { class: 'small' }, state.highlightNote) : null
       ),
@@ -92,22 +92,54 @@ function filterBar(onChange) {
       h('option', { value: c.id, selected: f.category === c.id }, `${c.icon} ${c.label}`))
   );
 
+  // The distance radius only means anything once a region is chosen, so it
+  // starts disabled. It is declared BEFORE the region select so the region
+  // handler can enable it — see syncDistanceControl below.
+  const distanceSelect = h('select', {
+    onchange: e => update('maxDistanceKm', e.target.value)
+  },
+    h('option', { value: '' }, 'That region only'),
+    ...[100, 250, 500, 1000].map(km =>
+      h('option', { value: String(km), selected: String(f.maxDistanceKm) === String(km) }, `Within ${km} km`))
+  );
+
+  /**
+   * Enable/disable the distance control to match whether a region is selected.
+   *
+   * This has to be an explicit DOM update rather than a re-render: the filter
+   * bar is built once, so without this the control kept whatever disabled state
+   * it had when the page first rendered. Choosing a region appeared to do
+   * nothing, which is exactly the bug this fixes.
+   */
+  function syncDistanceControl() {
+    const hasRegion = Boolean(state.filters.region);
+    distanceSelect.disabled = !hasRegion;
+    distanceSelect.options[0].textContent = hasRegion ? 'That region only' : 'Pick a region first';
+    if (!hasRegion) distanceSelect.value = '';
+  }
+
   const regionSelect = h('select', {
-    onchange: e => { setMyRegion(e.target.value || state.myRegion); update('region', e.target.value); }
+    onchange: e => {
+      const region = e.target.value;
+      if (region) setMyRegion(region);
+
+      // Clearing the region must also clear any radius, otherwise a stale
+      // "within 100 km" would silently keep filtering with nothing to measure from.
+      const patch = region ? { region } : { region: '', maxDistanceKm: '' };
+      setState({ filters: { ...state.filters, ...patch } });
+
+      syncDistanceControl();
+      onChange();
+    }
   },
     h('option', { value: '' }, 'Anywhere in NZ'),
     ...(meta?.regions || []).map(r =>
       h('option', { value: r.name, selected: f.region === r.name }, r.name))
   );
 
-  const distanceSelect = h('select', {
-    onchange: e => update('maxDistanceKm', e.target.value),
-    disabled: !f.region
-  },
-    h('option', { value: '' }, f.region ? 'That region only' : 'Pick a region first'),
-    ...[100, 250, 500, 1000].map(km =>
-      h('option', { value: String(km), selected: String(f.maxDistanceKm) === String(km) }, `Within ${km} km`))
-  );
+  // Set the initial state to match whatever region the filters already carry
+  // (the AI can arrive here having already set one).
+  syncDistanceControl();
 
   const sortSelect = h('select', { onchange: e => update('sort', e.target.value) },
     ...[

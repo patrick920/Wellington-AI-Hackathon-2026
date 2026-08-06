@@ -36,7 +36,7 @@ export const state = {
   currentPage: 'home',
 
   /** The user's own region, used for distance calculations across the app. */
-  myRegion: localStorage.getItem('loopnz.region') || 'Bay of Plenty'
+  myRegion: localStorage.getItem('wasteops.region') || 'Bay of Plenty'
 };
 
 const listeners = new Set();
@@ -55,7 +55,7 @@ export function setState(patch) {
 
 /** Persist and update the user's home region. */
 export function setMyRegion(region) {
-  localStorage.setItem('loopnz.region', region);
+  localStorage.setItem('wasteops.region', region);
   setState({ myRegion: region });
 }
 

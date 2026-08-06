@@ -16,6 +16,7 @@ import { api } from '../api.js';
 import { state, setMyRegion, categoryById } from '../state.js';
 import { openListingDrawer } from '../components.js';
 import { sendMessage } from '../chat.js';
+import { categoryArt, emptyArt } from '../illustrations.js';
 
 /** Match results for the current session, and where we are in the stack. */
 let deck = [];
@@ -114,7 +115,7 @@ function needForm(stage) {
           description.value.trim()
             ? `Help me refine this need before I search: "${description.value.trim()}". I'm in ${regionSelect.value}.`
             : "I don't know what waste material I need. Ask me questions to work it out.")
-      }, '✦ Not sure? Ask Kōwhai')
+      }, '✦ Not sure? Ask the AI Assistant')
     ),
     h('div', { class: 'chip-row', style: { marginTop: '.9rem' } },
       h('span', { class: 'small muted', style: { alignSelf: 'center' } }, 'Try:'),
@@ -143,17 +144,17 @@ async function loadMatches(stage, need) {
     if (!deck.length) {
       stage.replaceChildren(
         h('div', { class: 'empty' },
-          h('div', { class: 'big' }, '🤷'),
+          h('div', { class: 'empty-art', html: emptyArt() }),
           h('h3', {}, 'No strong matches yet'),
           h('p', { class: 'muted' },
             'Nothing on the marketplace fits that closely right now. Post a "wanted" request so producers can find you, ' +
-            'or ask Kōwhai to suggest an adjacent material.'),
+            'or ask the AI Assistant to suggest an adjacent material.'),
           h('div', { class: 'row', style: { justifyContent: 'center' } },
             h('a', { class: 'btn btn-primary', href: '#/wanted' }, 'Post a wanted request'),
             h('button', {
               class: 'btn btn-secondary',
-              onclick: () => sendMessage(`Nothing matched this need on LoopNZ: "${need.description}". What adjacent materials should I consider, and is there anything close in ${need.region}?`)
-            }, '✦ Ask Kōwhai')
+              onclick: () => sendMessage(`Nothing matched this need on Waste Opportunities: "${need.description}". What adjacent materials should I consider, and is there anything close in ${need.region}?`)
+            }, '✦ Ask the AI Assistant')
           )
         )
       );
@@ -217,9 +218,12 @@ function matchCard(match, depth) {
 
   return h('article', { class: `swipe-card ${cls}`, dataset: { depth: String(depth) } },
     h('div', { class: 'swipe-hero' },
+      // Illustration of the material, with the category and score over it.
+      // No large emoji here any more — the illustration carries the visual, and
+      // showing both was redundant.
+      h('div', { class: 'swipe-art', html: categoryArt(l.category) }),
       h('div', {},
-        h('div', { class: 'emoji' }, cat.icon),
-        h('div', { class: 'badge', style: { marginTop: '.5rem' } }, cat.label)
+        h('div', { class: 'badge' }, `${cat.icon} ${cat.label}`)
       ),
       h('div', { class: 'score-ring', style: { '--pct': String(match.score), width: '62px', height: '62px' } },
         h('span', { style: { fontSize: '.85rem' } }, `${match.score}%`))

@@ -178,10 +178,10 @@ export const listWastePage = {
         h('button', {
           class: 'btn btn-secondary', type: 'button',
           onclick: () => sendMessage(
-            `I'm filling in the LoopNZ listing form for "${f.title.value || 'a waste stream'}". ` +
+            `I'm filling in the Waste Opportunities listing form for "${f.title.value || 'a waste stream'}". ` +
             `It's ${f.quantityAmount.value || '?'} ${f.quantityUnit.value} ${f.quantityFrequency.value} in ${f.region.value}. ` +
             `Suggest realistic uses, a sensible shelf life, and whether I should price it free, negotiable or pay-to-take.`)
-        }, '✦ Ask Kōwhai to help fill this in')
+        }, '✦ Ask the AI Assistant to help fill this in')
       )
     );
 
@@ -200,7 +200,7 @@ export const listWastePage = {
           ? h('div', {
               class: 'card card-pad',
               style: { marginBottom: '1.2rem', borderColor: 'var(--accent)', background: 'var(--accent-soft)' }
-            }, h('strong', {}, '✦ Kōwhai filled this in for you.'), ' Check every field before publishing.')
+            }, h('strong', {}, '✦ The AI Assistant filled this in for you.'), ' Check every field before publishing.')
           : null,
 
         h('div', { class: 'card card-pad', style: { marginBottom: '1.4rem' } },

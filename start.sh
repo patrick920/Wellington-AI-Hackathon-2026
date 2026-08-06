@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-#  LoopNZ - one-click start for macOS and Linux
+#  Waste Opportunities - one-click start for macOS and Linux
 #  Run with:   ./start.sh      (you may need:  chmod +x start.sh  first)
 # ---------------------------------------------------------------------------
 set -e
 cd "$(dirname "$0")"
 
 echo ""
-echo "  Starting LoopNZ..."
+echo "  Starting Waste Opportunities..."
 echo ""
 
 if ! command -v node >/dev/null 2>&1; then

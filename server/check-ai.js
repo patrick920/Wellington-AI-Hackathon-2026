@@ -5,7 +5,7 @@
  *
  *     npm run check-ai
  *
- * It reports which provider LoopNZ would use, whether your API key works, and
+ * It reports which provider Waste Opportunities would use, whether your API key works, and
  * — for Gemini — which model names your key can actually see. That last part
  * matters: model names change over time, and a wrong one produces a confusing
  * 404 at chat time rather than at startup.
@@ -46,7 +46,7 @@ const { chat, aiStatus, PROVIDERS } = await import('./ai.js');
 const gemini = await import('./providers/gemini.js');
 
 console.log('─'.repeat(64));
-console.log(' LoopNZ — AI provider check');
+console.log(' Waste Opportunities — AI provider check');
 console.log('─'.repeat(64));
 
 // --- Which providers have keys? -------------------------------------------
@@ -81,37 +81,37 @@ console.log(`\nACTIVE: ${status.label} — ${status.model}\n`);
 // ("no longer available to new users"). So we send a tiny real request instead.
 if (status.id === 'gemini') {
   const current = gemini.model();
-  process.stdout.write(`Testing model "${current}"... `);
-  const check = await gemini.probeModel(current);
+  console.log('Checking each model with a real request.');
+  console.log('(The free tier allows ~20 requests per DAY per model, and one chat');
+  console.log(' message costs 2-3 requests. Waste Opportunities rotates models automatically when');
+  console.log(' one runs out, so more green ticks below = more demo runs available.)\n');
 
-  if (check.ok) {
-    console.log(`works (${check.ms}ms).`);
-  } else {
-    console.log('FAILED.');
-    console.log(`   ✗ ${check.error}\n`);
-    console.log('   Testing which models your key CAN use...\n');
-
-    const working = [];
-    for (const name of gemini.MODEL_CANDIDATES) {
-      if (name === current) continue;
-      const result = await gemini.probeModel(name);
-      if (result.ok) {
-        working.push(name);
-        console.log(`     ✓ ${name.padEnd(32)} ${result.ms}ms`);
-      } else {
-        console.log(`     ✗ ${name.padEnd(32)} ${result.error}`);
-      }
-    }
-
-    if (working.length) {
-      console.log(`\n   FIX: add this line to your .env file —\n`);
-      console.log(`       LOOPNZ_GEMINI_MODEL=${working[0]}\n`);
+  const working = [];
+  for (const name of [current, ...gemini.MODEL_CANDIDATES.filter(m => m !== current)]) {
+    const result = await gemini.probeModel(name);
+    const marker = name === current ? '→' : ' ';
+    if (result.ok) {
+      working.push(name);
+      console.log(`   ${marker} ✓ ${name.padEnd(32)} ${String(result.ms).padStart(5)}ms`);
     } else {
-      console.log('\n   None of the candidates worked. Your key may be invalid, or the');
-      console.log('   Generative Language API may not be enabled for it.');
-      console.log(`   Try a fresh key from ${gemini.keyUrl}\n`);
+      const why = /429/.test(result.error) ? 'out of quota for today'
+                : /404/.test(result.error) ? 'retired by Google'
+                : result.error.slice(0, 60);
+      console.log(`   ${marker} ✗ ${name.padEnd(32)} ${why}`);
     }
+  }
+
+  console.log('');
+  if (!working.length) {
+    console.log('   ✗ No models are usable right now.');
+    console.log('     If they all say "out of quota", your daily free allowance is spent —');
+    console.log('     it resets every day. Otherwise the key may be invalid: get a fresh');
+    console.log(`     one from ${gemini.keyUrl}\n`);
     process.exit(1);
+  }
+  console.log(`   ${working.length} of ${gemini.MODEL_CANDIDATES.length} models available — roughly ${working.length * 7} chat messages left today.`);
+  if (!working.includes(current)) {
+    console.log(`   "${current}" is unavailable, so Waste Opportunities will automatically use "${working[0]}".`);
   }
 }
 

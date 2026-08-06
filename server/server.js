@@ -1,7 +1,7 @@
 /**
  * server.js
  * ---------
- * The local web server for LoopNZ.
+ * The local web server for Waste Opportunities.
  *
  * Run it with:   npm start        (or)   node server/server.js
  * Then open:     http://localhost:3000
@@ -333,7 +333,7 @@ server.listen(PORT, async () => {
   console.log('');
   console.log('  ╭──────────────────────────────────────────────────────────╮');
   console.log('  │                                                          │');
-  console.log('  │   ♻  LoopNZ  —  Waste is only waste in the wrong place   │');
+  console.log('  │   ♻  Waste Opportunities  —  Waste is only waste in the wrong place   │');
   console.log('  │                                                          │');
   console.log('  ╰──────────────────────────────────────────────────────────╯');
   console.log('');

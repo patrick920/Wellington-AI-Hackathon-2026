@@ -180,10 +180,15 @@ export function loadingBlock(label = 'Loading…') {
   return h('div', { class: 'loading' }, h('div', { class: 'spinner' }), label);
 }
 
-/** An empty-state placeholder. */
+/**
+ * An empty-state placeholder.
+ * `icon` may be an emoji string, or an SVG string (detected by the leading
+ * "<svg") in which case it renders as an illustration.
+ */
 export function emptyBlock(icon, title, message, action) {
+  const isSvg = typeof icon === 'string' && icon.trim().startsWith('<svg');
   return h('div', { class: 'empty' },
-    h('div', { class: 'big' }, icon),
+    isSvg ? h('div', { class: 'empty-art', html: icon }) : h('div', { class: 'big' }, icon),
     h('h3', {}, title),
     h('p', { class: 'muted' }, message),
     action || null

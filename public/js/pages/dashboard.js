@@ -14,6 +14,7 @@ import { h, render, num, money, tonnes, timeAgo, toast, loadingBlock, emptyBlock
 import { api } from '../api.js';
 import { listingCard, openListingDrawer } from '../components.js';
 import { sendMessage } from '../chat.js';
+import { emptyArt } from '../illustrations.js';
 
 export const dashboardPage = {
   async render(container) {
@@ -78,14 +79,14 @@ export const dashboardPage = {
             ),
             me.myListings.length
               ? h('div', { class: 'stack' }, ...me.myListings.map(l => listingCard(l)))
-              : emptyBlock('📦', 'Nothing listed yet',
+              : emptyBlock(emptyArt(), 'Nothing listed yet',
                   'List a waste stream and the matcher will start looking for takers immediately.',
                   h('div', { class: 'row', style: { justifyContent: 'center', marginTop: '.8rem' } },
                     h('a', { class: 'btn btn-primary', href: '#/list-waste' }, 'List your waste'),
                     h('button', {
                       class: 'btn btn-secondary',
-                      onclick: () => sendMessage('I want to list a waste stream on LoopNZ. Ask me what you need to know and then fill in the form for me.')
-                    }, '✦ Have Kōwhai do it')
+                      onclick: () => sendMessage('I want to list a waste stream on Waste Opportunities. Ask me what you need to know and then fill in the form for me.')
+                    }, '✦ Have the AI Assistant do it')
                   ))
           ),
 
@@ -118,7 +119,7 @@ export const dashboardPage = {
 
         // --- Recent platform deals -----------------------------------------------
         h('section', { class: 'section', style: { marginTop: '2rem' } },
-          h('h2', {}, 'Recent activity across LoopNZ'),
+          h('h2', {}, 'Recent activity across Waste Opportunities'),
           h('div', { class: 'card card-pad table-wrap' },
             h('table', { class: 'table' },
               h('thead', {}, h('tr', {},

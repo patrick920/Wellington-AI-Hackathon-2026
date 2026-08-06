@@ -5,7 +5,7 @@
  *
  * Judges at a sustainability hackathon will ask "which goals, and how?" — so
  * this page names the specific TARGETS (12.3, 12.5, 13.2 …) rather than just
- * the goal numbers, states what LoopNZ actually does against each one, and
+ * the goal numbers, states what Waste Opportunities actually does against each one, and
  * pulls a live metric off the platform where one exists.
  *
  * Colours are the official UN goal colours.
@@ -16,7 +16,7 @@ import { api } from '../api.js';
 import { sendMessage } from '../chat.js';
 
 /**
- * The goal data. `primary: true` means this is a goal LoopNZ addresses head-on
+ * The goal data. `primary: true` means this is a goal Waste Opportunities addresses head-on
  * rather than contributing to indirectly.
  *
  * `metric(stats)` returns a live figure from the platform, or null.
@@ -25,7 +25,7 @@ const GOALS = [
   {
     n: 12, color: '#BF8B2E', primary: true,
     name: 'Responsible Consumption and Production',
-    summary: 'This is the goal LoopNZ exists to serve. Every listing is material leaving the linear take-make-dispose model and re-entering production as an input.',
+    summary: 'This is the goal Waste Opportunities exists to serve. Every listing is material leaving the linear take-make-dispose model and re-entering production as an input.',
     targets: [
       '12.3 — Halve per-capita food waste and reduce food losses along production and supply chains',
       '12.4 — Environmentally sound management of wastes throughout their life cycle',
@@ -57,7 +57,7 @@ const GOALS = [
   {
     n: 9, color: '#FD6925', primary: true,
     name: 'Industry, Innovation and Infrastructure',
-    summary: 'Industrial symbiosis — one industry\'s output becoming another\'s input — normally requires a physical eco-industrial park. LoopNZ builds that network digitally across a whole country.',
+    summary: 'Industrial symbiosis — one industry\'s output becoming another\'s input — normally requires a physical eco-industrial park. Waste Opportunities builds that network digitally across a whole country.',
     targets: [
       '9.4 — Upgrade infrastructure and retrofit industries to be sustainable, with greater resource-use efficiency',
       '9.5 — Enhance scientific research and upgrade technological capabilities of industrial sectors'
@@ -87,7 +87,7 @@ const GOALS = [
   {
     n: 2, color: '#DDA63A',
     name: 'Zero Hunger',
-    summary: 'A large share of what LoopNZ lists is edible or feed-grade material that is only "waste" because it failed a cosmetic grade.',
+    summary: 'A large share of what Waste Opportunities lists is edible or feed-grade material that is only "waste" because it failed a cosmetic grade.',
     targets: ['2.4 — Ensure sustainable food production systems and resilient agricultural practices'],
     how: [
       'Redirects grade-out fruit and vegetables to food manufacture rather than landfill',
@@ -168,7 +168,7 @@ export const sdgPage = {
           h('div', { class: 'eyebrow' }, 'Alignment'),
           h('h1', { style: { fontSize: '2rem' } }, 'UN Sustainable Development Goals'),
           h('p', { class: 'lede' },
-            'LoopNZ addresses four goals directly and contributes to six more. Each card names the specific UN ' +
+            'Waste Opportunities addresses four goals directly and contributes to six more. Each card names the specific UN ' +
             'targets involved, what the platform actually does about them, and — where we can measure it — a live ' +
             'figure from the marketplace.')
         ),
@@ -191,7 +191,7 @@ export const sdgPage = {
             'kiwifruit packhouse in Te Puke has no way of knowing a pectin start-up two hours away needs exactly ' +
             'what they are paying to bury.'),
           h('p', { style: { marginBottom: 0 } },
-            'That is a matching problem, and matching problems are what AI is genuinely good at. LoopNZ is built ' +
+            'That is a matching problem, and matching problems are what AI is genuinely good at. Waste Opportunities is built ' +
             'on the bet that the cheapest tonne of carbon in the primary sector is the one already sitting in a ' +
             'skip, waiting for someone to be told about it.')
         ),
@@ -199,8 +199,8 @@ export const sdgPage = {
         h('div', { class: 'center', style: { marginTop: '1.6rem' } },
           h('button', {
             class: 'btn btn-primary btn-lg',
-            onclick: () => sendMessage('Explain how LoopNZ contributes to the UN Sustainable Development Goals, and use the live platform statistics to back it up.')
-          }, '✦ Ask Kōwhai to make the case')
+            onclick: () => sendMessage('Explain how Waste Opportunities contributes to the UN Sustainable Development Goals, and use the live platform statistics to back it up.')
+          }, '✦ Ask the AI Assistant to make the case')
         )
       )
     );
@@ -231,7 +231,7 @@ function sdgCard(goal, stats) {
       h('h4', {}, 'UN targets'),
       h('ul', {}, ...goal.targets.map(t => h('li', { class: 'small' }, t))),
 
-      h('h4', {}, 'What LoopNZ does'),
+      h('h4', {}, 'What Waste Opportunities does'),
       h('ul', {}, ...goal.how.map(x => h('li', {}, x)))
     )
   );

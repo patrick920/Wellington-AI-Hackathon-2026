@@ -39,7 +39,7 @@ import { dashboardPage } from './pages/dashboard.js';
  * none, the CSS follows the operating system via prefers-color-scheme.
  */
 function initTheme() {
-  const saved = localStorage.getItem('loopnz.theme');
+  const saved = localStorage.getItem('wasteops.theme');
   if (saved) document.documentElement.dataset.theme = saved;
 
   document.getElementById('themeToggle').addEventListener('click', () => {
@@ -47,7 +47,7 @@ function initTheme() {
       || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     const next = current === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
-    localStorage.setItem('loopnz.theme', next);
+    localStorage.setItem('wasteops.theme', next);
   });
 }
 

@@ -7,18 +7,21 @@
 
 import { h, num, tonnes, timeAgo, priceLabel, priceBadgeClass, toast, esc } from './utils.js';
 import { state, categoryById } from './state.js';
+import { categoryArt, emptyArt } from './illustrations.js';
 import { api } from './api.js';
 
 /**
  * The set of small badges that summarise a listing.
  * Order matters — the most decision-relevant information comes first.
  */
-export function listingBadges(listing, { showDistance = true } = {}) {
+export function listingBadges(listing, { showDistance = true, includeCategory = false } = {}) {
   const cat = categoryById(listing.category);
-  const badges = [
-    h('span', { class: 'badge' }, `${cat.icon} ${cat.label}`),
-    h('span', { class: `badge ${priceBadgeClass(listing.priceType)}` }, priceLabel(listing))
-  ];
+  // Note: the category is shown on the card thumbnail, so it is deliberately
+  // NOT repeated here — `includeCategory` re-adds it for the detail drawer,
+  // which has no thumbnail.
+  const badges = [];
+  if (includeCategory) badges.push(h('span', { class: 'badge' }, `${cat.icon} ${cat.label}`));
+  badges.push(h('span', { class: `badge ${priceBadgeClass(listing.priceType)}` }, priceLabel(listing)));
 
   // Shelf-life urgency is the single most important constraint for
   // primary-industry waste, so it gets a loud badge when it's short.
@@ -62,8 +65,11 @@ export function listingCard(listing, opts = {}) {
     onclick: () => openListingDrawer(listing.id),
     onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openListingDrawer(listing.id); } }
   },
+    // The thumbnail is an illustration of the material itself (see
+    // js/illustrations.js), with the category chip and match score layered over it.
     h('div', { class: 'listing-thumb' },
-      h('span', {}, cat.icon),
+      h('div', { class: 'listing-art', html: categoryArt(listing.category) }),
+      h('span', { class: 'listing-thumb-chip' }, `${cat.icon} ${cat.label}`),
       opts.score != null
         ? h('div', { class: 'score-ring', style: { '--pct': String(opts.score) } }, h('span', {}, `${opts.score}%`))
         : null
@@ -87,9 +93,9 @@ export function listingCard(listing, opts = {}) {
 export function listingGrid(listings, opts = {}) {
   if (!listings.length) {
     return h('div', { class: 'empty' },
-      h('div', { class: 'big' }, '🔍'),
+      h('div', { class: 'empty-art', html: emptyArt() }),
       h('h3', {}, 'Nothing matches those filters'),
-      h('p', { class: 'muted' }, 'Try widening the distance, clearing the category, or asking Kōwhai to find something for you.')
+      h('p', { class: 'muted' }, 'Try widening the distance, clearing the category, or asking AI Assistant to find something for you.')
     );
   }
   return h('div', { class: 'listing-grid' },
@@ -142,7 +148,7 @@ export async function openListingDrawer(listingId) {
     ),
 
     h('div', { class: 'drawer-body' },
-      h('div', { class: 'row', style: { marginBottom: '1rem' } }, ...listingBadges(listing)),
+      h('div', { class: 'row', style: { marginBottom: '1rem' } }, ...listingBadges(listing, { includeCategory: true })),
 
       h('p', {}, listing.description),
 
@@ -257,12 +263,12 @@ function enquiryForm(listing) {
         class: 'btn btn-ghost', type: 'button',
         // Hands the listing to the AI so it can explain uses in context
         onclick: () => {
-          window.dispatchEvent(new CustomEvent('loopnz:ask', {
+          window.dispatchEvent(new CustomEvent('wasteops:ask', {
             detail: { message: `Tell me more about the listing "${listing.title}" (id ${listing.id}). What could I realistically make from it, what processing would I need, and is the shelf life workable?` }
           }));
           closeDrawer();
         }
-      }, '✦ Ask Kōwhai about this')
+      }, '✦ Ask the AI Assistant about this')
     )
   );
   return form;

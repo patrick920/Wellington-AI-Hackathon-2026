@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-LoopNZ — a local-only web app for AI Hackathon 2026. A marketplace matching New Zealand
+Waste Opportunities — a local-only web app for AI Hackathon 2026. A marketplace matching New Zealand
 primary-industry waste producers with people who can reuse the material, with an AI
 assistant that can operate the website itself. See `README.md` for the product description
 and demo script.
@@ -67,7 +67,7 @@ against the REST API, so the whole app runs from `node server/server.js` with no
 Claude is opt-in and uses the official SDK, dynamically imported so a missing
 `node_modules` degrades instead of crashing.
 
-Selection order (`pickProvider()`): explicit `LOOPNZ_PROVIDER`, else the first provider in
+Selection order (`pickProvider()`): explicit `WASTEOPS_PROVIDER`, else the first provider in
 `PROVIDERS` with a key, else offline. The result is cached in module scope for the process
 lifetime.
 
@@ -131,10 +131,36 @@ Consequences worth knowing:
 - `listWaste.js` clears `state.prefill` by direct assignment rather than `setState`, to
   avoid a redundant render during its own render pass.
 
+### Artwork
+
+All imagery is hand-written inline SVG in `public/js/illustrations.js` — no photos, no
+CDN, no image files. That keeps the offline-demo property intact and sidesteps stock
+licensing. Colours come from the `P` palette object at the top of that file; the tones are
+hard-coded rather than themed, because they must read on both light and dark cards.
+
+Two things that will bite when editing it:
+
+- **Category art is a wide 320x96 canvas with the motif on the RIGHT.** In a narrow
+  container the browser crops horizontally and slices the subject off, so
+  `categoryArt(id, { crop: 'motif' })` anchors the crop right. The home page category
+  tiles need this; the wide listing-card thumbnails do not.
+- **Watch the viewBox bounds on arcs.** An SVG `A` command can easily sweep outside the
+  viewBox and get silently clipped (this happened to the step-3 loop). A dashed `<circle>`
+  has predictable bounds of `cx ± (r + strokeWidth)`; prefer it for ring shapes.
+
 ### CSS custom properties in JS
 
 `el.style['--pct'] = x` silently does nothing. The `h()` helper detects `--` prefixed
 properties and routes them through `setProperty`. Match-score rings depend on this.
+
+### CSS cascade trap in the topbar
+
+Elements in the topbar carry both a utility class and a component class — e.g. the mobile
+menu button is `class="btn btn-ghost btn-icon nav-toggle"`. `.btn` sets
+`display: inline-flex` and is declared *later* in the stylesheet than the layout section,
+so at equal specificity it wins. That is why the hide rule is `.topbar .nav-toggle`, not
+`.nav-toggle`, and why the `@media (max-width: 760px)` override has to match that
+specificity. A bare single-class rule there will silently do nothing.
 
 ### Data layer
 
@@ -189,7 +215,7 @@ tool calls.
 
 ### Gemini (`providers/gemini.js`, default)
 
-The whole file is essentially a translation layer from LoopNZ's Anthropic-style tool
+The whole file is essentially a translation layer from the app's Anthropic-style tool
 definitions to Gemini's format. Three traps encoded there:
 
 - **Schema dialect.** Gemini accepts only a subset of JSON Schema. `toGeminiSchema()`
@@ -201,14 +227,27 @@ definitions to Gemini's format. Three traps encoded there:
   results go back as `functionResponse` parts in a **`user`** turn whose `response` value
   must be a JSON object (`asResponseObject()` guards this).
 
-Model names change over time; `listModels()` powers `npm run check-ai` so a wrong
-`LOOPNZ_GEMINI_MODEL` can be fixed without guessing. `friendlyError()` maps HTTP statuses
-to actionable messages — extend it rather than letting raw JSON reach the user.
+**Model availability is the operational constraint, not correctness.** Two hard-won facts:
+
+- Google retires model versions but *keeps them in the models-list response*; they only
+  fail when called ("no longer available to new users"). So `listModels()` is not a
+  usable availability check — `probeModel()` sends a real request instead, and that is
+  what `npm run check-ai` uses.
+- The free tier caps requests at ~20/day **per model**, and one chat message costs 2-3
+  requests. `callGemini()` therefore rotates through `MODEL_CANDIDATES` on 429/404,
+  marking exhausted models in a module-level map. Non-model errors (bad key, bad schema)
+  throw immediately rather than retrying against every model and burying the cause.
+
+`WASTEOPS_EFFORT` maps to `thinkingConfig.thinkingBudget` (low=512, high=4096, medium=omit).
+Never map it to 0 — these models reject a zero budget with a 400.
+
+`friendlyError()` maps HTTP statuses to actionable messages; extend it rather than letting
+raw JSON reach the user.
 
 ### Claude (`providers/claude.js`, opt-in)
 
 - Thinking is on by default on Opus 5, so the `thinking` parameter is intentionally omitted.
-  Depth is `output_config: { effort }` (`LOOPNZ_EFFORT`).
+  Depth is `output_config: { effort }` (`WASTEOPS_EFFORT`).
 - The system block carries `cache_control: { type: 'ephemeral' }`. Keep the system prompt
   and `TOOLS` byte-stable across requests or caching stops working.
 - `stop_reason === 'refusal'` is handled before reading `response.content`, which can be
@@ -220,8 +259,8 @@ to actionable messages — extend it rather than letting raw JSON reach the user
 `KEY=value` and `#` comments only, and `check-ai.js` duplicates it so the diagnostic can run
 standalone. Copy from `.env.example`.
 
-Keys: `GEMINI_API_KEY` (or `GOOGLE_API_KEY`), `LOOPNZ_GEMINI_MODEL`, `ANTHROPIC_API_KEY`,
-`LOOPNZ_CLAUDE_MODEL`, `LOOPNZ_EFFORT`, `LOOPNZ_PROVIDER`, `PORT`.
+Keys: `GEMINI_API_KEY` (or `GOOGLE_API_KEY`), `WASTEOPS_GEMINI_MODEL`, `ANTHROPIC_API_KEY`,
+`WASTEOPS_CLAUDE_MODEL`, `WASTEOPS_EFFORT`, `WASTEOPS_PROVIDER`, `PORT`.
 
 **A recurring support issue: people edit `.env.example` instead of `.env`.** Only `.env` is
 read. Check this first when someone reports "my key isn't working".

@@ -1,7 +1,7 @@
 /**
  * ai.js
  * -----
- * The AI brain of LoopNZ.
+ * The AI brain of Waste Opportunities.
  *
  * THE BIG IDEA:
  * The chatbot is not a separate help widget bolted onto the side. It is given
@@ -49,11 +49,11 @@ import * as gemini from './providers/gemini.js';
 import * as claude from './providers/claude.js';
 
 /**
- * Providers in PREFERENCE ORDER. When LOOPNZ_PROVIDER is not set, the first
+ * Providers in PREFERENCE ORDER. When WASTEOPS_PROVIDER is not set, the first
  * one that has an API key configured wins — so Gemini is the default, and
  * Claude is used only if you have an Anthropic key and no Gemini one.
  *
- * To force a specific provider regardless, set LOOPNZ_PROVIDER=claude
+ * To force a specific provider regardless, set WASTEOPS_PROVIDER=claude
  * (or =gemini, or =offline) in your .env.
  */
 const PROVIDERS = [gemini, claude];
@@ -68,10 +68,10 @@ let selected = undefined;
 async function pickProvider() {
   if (selected !== undefined) return selected;
 
-  const forced = (process.env.LOOPNZ_PROVIDER || '').trim().toLowerCase();
+  const forced = (process.env.WASTEOPS_PROVIDER || process.env.LOOPNZ_PROVIDER || '').trim().toLowerCase();
 
   if (forced === 'offline' || forced === 'none') {
-    console.log('[ai] LOOPNZ_PROVIDER=offline — using the built-in demo assistant.');
+    console.log('[ai] WASTEOPS_PROVIDER=offline — using the built-in demo assistant.');
     selected = null;
     return selected;
   }
@@ -79,17 +79,17 @@ async function pickProvider() {
   if (forced) {
     const match = PROVIDERS.find(p => p.id === forced);
     if (!match) {
-      console.log(`[ai] Unknown LOOPNZ_PROVIDER "${forced}". Valid values: ${PROVIDERS.map(p => p.id).join(', ')}, offline.`);
+      console.log(`[ai] Unknown WASTEOPS_PROVIDER "${forced}". Valid values: ${PROVIDERS.map(p => p.id).join(', ')}, offline.`);
       selected = null;
       return selected;
     }
     if (!(await providerReady(match))) {
-      console.log(`[ai] LOOPNZ_PROVIDER=${forced} but it is not configured. Set ${match.describe().envVar} in .env — key from ${match.keyUrl}`);
+      console.log(`[ai] WASTEOPS_PROVIDER=${forced} but it is not configured. Set ${match.describe().envVar} in .env — key from ${match.keyUrl}`);
       selected = null;
       return selected;
     }
     selected = match;
-    console.log(`[ai] Using ${match.label} (${match.model()}) — set by LOOPNZ_PROVIDER.`);
+    console.log(`[ai] Using ${match.label} (${match.model()}) — set by WASTEOPS_PROVIDER.`);
     return selected;
   }
 
@@ -153,7 +153,7 @@ const TOOLS = [
   {
     name: 'search_listings',
     description:
-      'Search the live LoopNZ marketplace for waste material that is currently available. ' +
+      'Search the live Waste Opportunities marketplace for waste material that is currently available. ' +
       'Call this whenever the user asks what is available, mentions a material they want, ' +
       'or describes a project that needs an input material. Returns real listings from the database — ' +
       'never invent listings, always search first. Only returns public listings.',
@@ -526,7 +526,7 @@ function executeTool(name, input) {
  */
 function buildSystemPrompt(pageContext) {
   const stats = getStatistics();
-  return `You are Kōwhai, the AI assistant built into LoopNZ — a New Zealand marketplace that matches primary-industry waste producers with people who can turn that waste into something useful.
+  return `You are the AI Assistant built into Waste Opportunities — a New Zealand marketplace that matches primary-industry waste producers with people who can turn that waste into something useful.
 
 WHO YOU HELP
 1. Producers with waste to dispose of (packhouses, dairy sheds, sawmills, fisheries, wineries). Help them list it, price it, and find takers.
@@ -589,7 +589,9 @@ export async function chat(history, userMessage, pageContext) {
       history: history.slice(-12),
       userMessage,
       runTool: executeTool,
-      maxIterations: 6 // safety valve so a confused model cannot loop forever
+      // A rich question legitimately uses 5+ tools (search, match, filter,
+      // highlight, navigate), so leave room for that plus a final answer.
+      maxIterations: 9 // safety valve so a confused model cannot loop forever
     });
     logChat('assistant', out.reply);
     return { ...out, offline: false, provider: provider.id };
@@ -643,7 +645,7 @@ export function runFallbackAssistant(message, pageContext) {
     actions.push({ type: 'navigate', page: 'impact' });
     return {
       reply:
-        `Here is where LoopNZ stands right now.\n\n` +
+        `Here is where Waste Opportunities stands right now.\n\n` +
         `**Already realised** — ${s.realised.tonnesDiverted.toLocaleString()} tonnes diverted from landfill across ${s.realised.dealsCompleted} completed matches, avoiding about ${s.realised.co2AvoidedTonnes.toLocaleString()} tonnes of CO₂e and saving producers roughly $${s.realised.moneySavedNzd.toLocaleString()} in disposal costs.\n\n` +
         `**Currently listed** — if everything on the marketplace today found a taker, that is ${s.potential.tonnesPerYear.toLocaleString()} tonnes a year, about ${s.potential.co2AvoidedTonnesPerYear.toLocaleString()} tonnes of CO₂e — the same as taking roughly ${s.equivalents.carsOffRoadPerYear.toLocaleString()} cars off New Zealand roads.\n\n` +
         `I've opened the Impact page so you can see the breakdown by industry and region.`,
@@ -656,7 +658,7 @@ export function runFallbackAssistant(message, pageContext) {
     actions.push({ type: 'navigate', page: 'sdg' });
     return {
       reply:
-        `LoopNZ maps most directly onto **SDG 12 (Responsible Consumption and Production)** — specifically target 12.3 on food loss and 12.5 on waste reduction through reuse.\n\n` +
+        `Waste Opportunities maps most directly onto **SDG 12 (Responsible Consumption and Production)** — specifically target 12.3 on food loss and 12.5 on waste reduction through reuse.\n\n` +
         `It also contributes to **SDG 13 (Climate Action)** by avoiding landfill methane, **SDG 9 (Industry, Innovation and Infrastructure)** by creating industrial symbiosis between sectors, and **SDG 8 (Decent Work and Economic Growth)** by turning a disposal cost into a revenue stream for rural businesses.\n\n` +
         `I've opened the UN Goals page with the full mapping.`,
       actions, toolsUsed

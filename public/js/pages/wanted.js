@@ -58,7 +58,7 @@ function wantCard(want) {
       h('button', {
         class: 'btn btn-secondary btn-sm',
         onclick: () => sendMessage(
-          `Someone on LoopNZ wants: "${want.title}" — ${want.description} (${want.region}). ` +
+          `Someone on Waste Opportunities wants: "${want.title}" — ${want.description} (${want.region}). ` +
           `Search the marketplace and tell me which existing listings could satisfy this, and what is missing.`)
       }, '✦ Find them a match')
     )
@@ -115,7 +115,7 @@ function wantForm(container) {
       btn,
       h('button', {
         class: 'btn btn-ghost', type: 'button',
-        onclick: () => sendMessage("I want to post a wanted request on LoopNZ but I'm not sure how to describe what I need. Ask me questions and then write it for me.")
+        onclick: () => sendMessage("I want to post a wanted request on Waste Opportunities but I'm not sure how to describe what I need. Ask me questions and then write it for me.")
       }, '✦ Help me write it')
     )
   );

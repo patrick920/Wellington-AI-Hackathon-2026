@@ -12,6 +12,7 @@ import { state, setState } from '../state.js';
 import { navigate } from '../router.js';
 import { sendMessage } from '../chat.js';
 import { listingCard } from '../components.js';
+import { heroScene, stepArt, categoryArt } from '../illustrations.js';
 
 export const homePage = {
   async render(container) {
@@ -61,13 +62,16 @@ function heroSection(stats) {
   ];
 
   return h('section', { class: 'hero' },
+    // The illustrated scene sits behind and below the hero content, so it adds
+    // imagery without pushing the headline stats down the page.
+    h('div', { class: 'hero-scene', html: heroScene() }),
     h('div', { class: 'hero-inner' },
       h('div', {},
         h('span', { class: 'badge badge-green', style: { marginBottom: '.8rem' } }, '♻ Aotearoa New Zealand · Circular economy'),
         h('h1', {}, 'Waste is only waste ', h('em', {}, 'in the wrong place'), '.'),
         h('p', { class: 'lede' },
           'New Zealand\'s primary industries throw away millions of tonnes of usable material every year — ' +
-          'kiwifruit skin, grape marc, mussel shell, sawdust, whey. LoopNZ matches the people paying to bury it ' +
+          'kiwifruit skin, grape marc, mussel shell, sawdust, whey. Waste Opportunities matches the people paying to bury it ' +
           'with the people who need it, and uses AI to work out matches a human broker would never spot.'),
         h('div', { class: 'hero-cta' },
           h('a', { class: 'btn btn-primary btn-lg', href: '#/browse' }, 'Browse available material'),
@@ -83,7 +87,7 @@ function heroSection(stats) {
       ),
 
       h('div', { class: 'hero-ai' },
-        h('h3', {}, h('span', { class: 'avatar' }, '✦'), 'Ask Kōwhai'),
+        h('h3', {}, h('span', { class: 'avatar' }, '✦'), 'Ask the AI Assistant'),
         h('p', { class: 'small muted', style: { margin: 0 } },
           'Our AI assistant can search the marketplace, work out what material suits your project, and drive this site for you.'),
         form,
@@ -146,9 +150,9 @@ function problemSection(stats) {
 
 function howItWorksSection() {
   const steps = [
-    ['1', 'List or search', 'A producer lists their waste in under a minute — what it is, how much, where, and how long before it spoils. An acquirer searches, or just describes their project.'],
-    ['2', 'AI finds the match', 'Kōwhai scores every listing against the need on relevance, distance, shelf life, volume and cost — then explains why each one made the list.'],
-    ['3', 'Connect and collect', 'Send an enquiry, agree collection, and the diverted tonnage is added to both parties\' impact record.']
+    [1, 'List or search', 'A producer lists their waste in under a minute — what it is, how much, where, and how long before it spoils. An acquirer searches, or just describes their project.'],
+    [2, 'AI finds the match', 'The AI Assistant scores every listing against the need on relevance, distance, shelf life, volume and cost — then explains why each one made the list.'],
+    [3, 'Connect and collect', 'Send an enquiry, agree collection, and the diverted tonnage is added to both parties\' impact record.']
   ];
   return h('section', { class: 'section' },
     h('div', { class: 'page-head' }, h('div', { class: 'eyebrow' }, 'How it works')),
@@ -156,7 +160,8 @@ function howItWorksSection() {
     h('div', { class: 'how' },
       ...steps.map(([n, title, body]) =>
         h('div', { class: 'how-step' },
-          h('div', { class: 'how-num' }, n),
+          h('div', { class: 'how-art', html: stepArt(n) }),
+          h('div', { class: 'how-num' }, String(n)),
           h('h3', {}, title),
           h('p', {}, body)
         ))
@@ -198,8 +203,8 @@ function categoriesSection(stats) {
             navigate('browse');
           }
         },
-          h('span', { class: 'icon' }, c.icon),
-          h('div', { class: 'name' }, c.label),
+          h('div', { class: 'cat-art', html: categoryArt(c.id, { crop: 'motif' }) }),
+          h('div', { class: 'name' }, `${c.icon} ${c.label}`),
           h('div', { class: 'n' }, `${c.listings} listing${c.listings === 1 ? '' : 's'} · ${num(c.tonnesPerYear)} t/yr`)
         ))
     )
@@ -224,10 +229,10 @@ function ctaSection() {
   return h('section', { class: 'card card-pad center', style: { marginTop: '1rem' } },
     h('h2', {}, 'Not sure where you fit?'),
     h('p', { class: 'muted', style: { maxWidth: '52ch', margin: '0 auto 1.2rem' } },
-      'Describe your business or your project in plain English. Kōwhai will work out whether you are a producer, an acquirer, or both — and what to do next.'),
+      'Describe your business or your project in plain English. The AI Assistant will work out whether you are a producer, an acquirer, or both — and what to do next.'),
     h('button', {
       class: 'btn btn-primary btn-lg',
       onclick: () => sendMessage('I am not sure whether I should be listing waste or looking for it. Here is my situation: ')
-    }, '✦ Talk it through with Kōwhai')
+    }, '✦ Talk it through with the AI Assistant')
   );
 }

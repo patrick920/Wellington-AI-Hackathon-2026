@@ -1,7 +1,7 @@
 {
-  "name": "loopnz",
+  "name": "waste-opportunities",
   "version": "1.0.0",
-  "description": "LoopNZ - An AI-powered marketplace that matches primary-industry waste producers with people who can reuse the material. AI Hackathon 2026.",
+  "description": "Waste Opportunities - An AI-powered marketplace that matches primary-industry waste producers with people who can reuse the material. AI Hackathon 2026.",
   "type": "module",
   "main": "server/server.js",
   "scripts": {

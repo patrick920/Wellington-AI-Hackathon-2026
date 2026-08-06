@@ -109,7 +109,7 @@ function showActionStrip(actions) {
   }[a.type] || `→ ${a.type}`);
 
   strip.replaceChildren(
-    h('span', {}, '⚡ Kōwhai changed the page:'),
+    h('span', {}, '⚡ AI Assistant changed the page:'),
     ...actions.map(a => h('span', {}, describe(a)))
   );
   strip.hidden = false;
@@ -172,7 +172,7 @@ async function runActions(actions) {
       case 'prefillForm':
         setState({ prefill: action.values || {} });
         navigate('list-waste');
-        toast('Kōwhai filled in the form — review it before publishing', 'success');
+        toast('The AI Assistant filled in the form — review it before publishing', 'success');
         break;
 
       // Something was created server-side; refresh whatever page we're on.
@@ -202,7 +202,7 @@ async function runActions(actions) {
 
 /**
  * Send one turn to the assistant.
- * Exported so other parts of the UI (hero prompt box, "Ask Kōwhai about this"
+ * Exported so other parts of the UI (hero prompt box, "Ask the AI Assistant about this"
  * buttons) can start a conversation.
  */
 export async function sendMessage(text) {
@@ -292,11 +292,11 @@ export function initChat() {
   });
 
   // Any part of the app can start a conversation by firing this event.
-  window.addEventListener('loopnz:ask', e => sendMessage(e.detail.message));
+  window.addEventListener('wasteops:ask', e => sendMessage(e.detail.message));
 
   // Opening greeting.
   addAssistantMessage(
-    "Kia ora! I'm **Kōwhai**, LoopNZ's matchmaker.\n\n" +
+    "Kia ora! I'm the **AI Assistant** for Waste Opportunities.\n\n" +
     "I can search the live marketplace, work out which waste stream suits a project, " +
     "post a listing for you, and drive this website while we talk.\n\n" +
     "What are you trying to do — get rid of something, or find something?"

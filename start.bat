@@ -1,13 +1,13 @@
 @echo off
 REM ---------------------------------------------------------------------------
-REM  LoopNZ - one-click start for Windows
+REM  Waste Opportunities - one-click start for Windows
 REM  Double-click this file, or run  start.bat  from a terminal.
 REM ---------------------------------------------------------------------------
 
 cd /d "%~dp0"
 
 echo.
-echo   Starting LoopNZ...
+echo   Starting Waste Opportunities...
 echo.
 
 REM Check Node is installed

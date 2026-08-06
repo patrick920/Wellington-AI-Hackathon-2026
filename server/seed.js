@@ -1,7 +1,7 @@
 /**
  * seed.js
  * -------
- * The starting dataset for LoopNZ. This is what fills the marketplace when you
+ * The starting dataset for Waste Opportunities. This is what fills the marketplace when you
  * first run the app (or after you delete data/db.json).
  *
  * Everything here is modelled on real New Zealand primary-industry waste

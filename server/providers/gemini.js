@@ -1,7 +1,7 @@
 /**
  * providers/gemini.js
  * -------------------
- * Google AI Studio (Gemini) support — the DEFAULT provider for LoopNZ.
+ * Google AI Studio (Gemini) support — the DEFAULT provider for Waste Opportunities.
  *
  * WHY GEMINI IS THE DEFAULT:
  * Google AI Studio has a genuinely free API tier that does not require a credit
@@ -15,7 +15,7 @@
  *   https://ai.google.dev/api/generate-content
  *
  * THE INTERESTING PART — translating tool calls:
- * LoopNZ defines its tools once, in Anthropic's JSON-Schema style (see TOOLS in
+ * Waste Opportunities defines its tools once, in Anthropic's JSON-Schema style (see TOOLS in
  * server/ai.js). Gemini wants OpenAPI-subset "functionDeclarations" instead, and
  * uses a different message shape for calls and results. Everything in this file
  * below `toGeminiSchema` is that translation. The tools themselves, and
@@ -46,23 +46,56 @@ export const keyUrl = 'https://aistudio.google.com/apikey';
  * they effectively need billing enabled. Stick to Flash unless you have paid.
  */
 export function model() {
-  return process.env.LOOPNZ_GEMINI_MODEL || 'gemini-flash-latest';
+  return process.env.WASTEOPS_GEMINI_MODEL || process.env.LOOPNZ_GEMINI_MODEL || 'gemini-flash-latest';
 }
 
 /**
- * Models worth trying if the configured one fails, roughly best-first.
- * `npm run check-ai` probes these with a real request so it can tell you which
- * ones your key can genuinely use — the models list endpoint cannot, because it
- * happily reports models that then refuse to run.
+ * Fallback models, best-first, used when the configured model is unavailable.
+ *
+ * WHY THIS MATTERS MORE THAN IT LOOKS:
+ * The Gemini free tier caps requests **per day, per model** — as low as 20/day.
+ * One user message costs 2-3 API requests (the tool loop), so a single model
+ * gives you roughly 7 messages a day before it starts returning 429.
+ *
+ * Crucially, that quota is per model, so switching models gets you a fresh
+ * budget. `callGemini()` below rotates through this list automatically, which
+ * turns "the demo is dead until tomorrow" into "the demo keeps working".
+ *
+ * `npm run check-ai` probes these with real requests. Note the models-list
+ * endpoint is useless for this — it cheerfully lists retired models that then
+ * 404, and says nothing about remaining quota.
  */
 export const MODEL_CANDIDATES = [
-  'gemini-flash-latest',           // current Flash alias — the default
-  'gemini-flash-lite-latest',      // fastest, good for a live demo
+  'gemini-flash-latest',           // best quality of the free-tier Flash models
   'gemini-3-flash-preview',
-  'gemini-3.1-flash-lite-preview',
-  'gemini-pro-latest',             // usually 429s without billing
-  'gemini-2.0-flash'
+  'gemini-flash-lite-latest',      // fastest (~700ms vs ~2s)
+  'gemini-3.1-flash-lite-preview'
 ];
+
+/**
+ * Models we have already seen fail today with a quota or availability error.
+ * Kept for the life of the process so we don't waste a round trip re-checking
+ * a model we know is exhausted. Cleared after RETRY_EXHAUSTED_AFTER_MS in case
+ * the limit was a short per-minute one rather than the daily cap.
+ */
+const exhausted = new Map(); // model name -> timestamp when it failed
+const RETRY_EXHAUSTED_AFTER_MS = 10 * 60 * 1000;
+
+/** The ordered list of models to try: the configured one first, then fallbacks. */
+function modelChain() {
+  const configured = model();
+  return [configured, ...MODEL_CANDIDATES.filter(m => m !== configured)];
+}
+
+function isExhausted(name) {
+  const failedAt = exhausted.get(name);
+  if (!failedAt) return false;
+  if (Date.now() - failedAt > RETRY_EXHAUSTED_AFTER_MS) {
+    exhausted.delete(name);
+    return false;
+  }
+  return true;
+}
 
 /**
  * Read the API key. We accept three names because Google's own docs and tools
@@ -83,7 +116,7 @@ export function isConfigured() {
 }
 
 /**
- * How hard the model thinks before answering — the same LOOPNZ_EFFORT setting
+ * How hard the model thinks before answering — the same WASTEOPS_EFFORT setting
  * the Claude provider uses, mapped onto Gemini's thinking budget.
  *
  * Measured on gemini-flash-latest: `low` is roughly 30% faster per call, which
@@ -95,7 +128,7 @@ export function isConfigured() {
  * decide, which is both the fastest-to-fail-safe option and a good default.
  */
 export function effort() {
-  return process.env.LOOPNZ_EFFORT || 'medium';
+  return process.env.WASTEOPS_EFFORT || process.env.LOOPNZ_EFFORT || 'medium';
 }
 
 function thinkingConfig() {
@@ -151,7 +184,7 @@ function toGeminiSchema(schema) {
 }
 
 /**
- * Convert LoopNZ's tool list into Gemini's `functionDeclarations` format.
+ * Convert the app's tool list into Gemini's `functionDeclarations` format.
  *
  * Note the empty-parameters case: `get_statistics` takes no arguments, and
  * sending `parameters: { type: "object", properties: {} }` makes Gemini return a
@@ -184,12 +217,71 @@ function asResponseObject(value) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Send one request, automatically rotating to a fallback model if the current
+ * one is out of daily quota (429) or has been retired (404).
+ *
+ * This is what keeps a demo alive: the free tier's daily cap is per model, so
+ * a 429 on one model says nothing about the next one.
+ *
+ * Errors that are NOT the model's fault — a bad API key, a malformed tool
+ * schema — are thrown immediately rather than retried against every model in
+ * turn, because rotating would just produce the same failure four more times
+ * and bury the real cause.
+ *
+ * @returns {Promise<{data: object, modelUsed: string}>}
+ */
+async function callGemini(key, body) {
+  const chain = modelChain();
+  const skipped = chain.filter(isExhausted);
+  const tryable = chain.filter(name => !isExhausted(name));
+
+  // Everything we know about is exhausted — try the whole chain again anyway,
+  // in case a per-minute limit has since cleared.
+  const attempts = tryable.length ? tryable : chain;
+  let lastError = null;
+
+  for (const name of attempts) {
+    const response = await fetch(`${API_BASE}/models/${name}:generateContent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+      body: JSON.stringify(body)
+    });
+
+    if (response.ok) {
+      exhausted.delete(name);
+      return { data: await response.json(), modelUsed: name };
+    }
+
+    const detail = await response.text().catch(() => '');
+
+    // 429 (out of quota) and 404 (model retired) are model-specific: mark it
+    // and move on to the next one.
+    if (response.status === 429 || response.status === 404) {
+      exhausted.set(name, Date.now());
+      lastError = friendlyError(response.status, detail, name);
+      console.log(`[ai] Gemini model "${name}" unavailable (${response.status}) — trying the next one.`);
+      continue;
+    }
+
+    // Anything else is our fault, not the model's. Fail fast and loudly.
+    throw new Error(friendlyError(response.status, detail, name));
+  }
+
+  throw new Error(
+    `Every Gemini model is currently unavailable${skipped.length ? '' : ''}. ` +
+    `Tried: ${attempts.join(', ')}. Last error: ${lastError} ` +
+    `The free tier allows only about 20 requests per day per model, and one chat ` +
+    `message costs 2-3 requests. Quotas reset daily.`
+  );
+}
+
+/**
  * Run one full turn: send the conversation, execute any tools Gemini asks for,
  * feed the results back, and repeat until it produces a final answer.
  *
  * @param {object}   opts
  * @param {string}   opts.system         system instruction
- * @param {Array}    opts.tools          LoopNZ tool definitions (Anthropic shape)
+ * @param {Array}    opts.tools          Waste Opportunities tool definitions (Anthropic shape)
  * @param {Array}    opts.history        [{role:'user'|'assistant', content:string}]
  * @param {string}   opts.userMessage    what the user just typed
  * @param {Function} opts.runTool        (name, input) => { result, action? }
@@ -214,6 +306,7 @@ export async function runTurn({ system, tools, history, userMessage, runTool, ma
 
   const actions = [];
   const toolsUsed = [];
+  let usedFallbackModel = null;
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
     const generationConfig = { maxOutputTokens: 8192 };
@@ -227,20 +320,8 @@ export async function runTurn({ system, tools, history, userMessage, runTool, ma
       generationConfig
     };
 
-    const response = await fetch(`${API_BASE}/models/${model()}:generateContent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify(body)
-    });
-
-    if (!response.ok) {
-      // Surface Google's own error text — it is usually specific and useful
-      // ("API key not valid", "model not found", schema complaints).
-      const detail = await response.text().catch(() => '');
-      throw new Error(friendlyError(response.status, detail));
-    }
-
-    const data = await response.json();
+    const { data, modelUsed } = await callGemini(key, body);
+    if (modelUsed !== model()) usedFallbackModel = modelUsed;
 
     // The safety filter can block the prompt outright before any generation.
     if (data.promptFeedback?.blockReason) {
@@ -292,8 +373,32 @@ export async function runTurn({ system, tools, history, userMessage, runTool, ma
     contents.push({ role: 'user', parts: responseParts });
   }
 
+  // Out of iterations. Rather than apologising, make ONE more call with the
+  // tools removed: the model can no longer ask for anything else, so it has to
+  // write an answer from what it has already gathered. Without this the user
+  // sees "I ran out of steps" even though every tool call succeeded and the
+  // page was correctly updated — which is exactly what it looked like in
+  // testing on a five-tool question.
+  try {
+    const { data } = await callGemini(key, {
+      systemInstruction: {
+        parts: [{
+          text: system + '\n\nYou have gathered enough information. Answer the user now, ' +
+                'using the tool results already in this conversation. Do not ask for more tools.'
+        }]
+      },
+      contents,
+      generationConfig: { maxOutputTokens: 8192 }
+    });
+    const text = (data.candidates?.[0]?.content?.parts || [])
+      .filter(p => p.text).map(p => p.text).join('\n').trim();
+    if (text) return { reply: text, actions, toolsUsed };
+  } catch (err) {
+    console.log('[ai] Final no-tools Gemini call failed:', err.message);
+  }
+
   return {
-    reply: 'I looked into that but ran out of steps before finishing. Could you narrow the question slightly?',
+    reply: 'I found some results and updated the page, but ran out of steps before writing them up. Ask me again and I can summarise.',
     actions,
     toolsUsed
   };
@@ -303,7 +408,7 @@ export async function runTurn({ system, tools, history, userMessage, runTool, ma
  * Turn an HTTP failure into something a hackathon team can act on at 2am,
  * rather than a raw JSON blob.
  */
-function friendlyError(status, detail) {
+function friendlyError(status, detail, forModel) {
   // Google's own message is usually the most useful thing available — always
   // try to surface it rather than replacing it with a guess.
   let googleMessage = '';
@@ -325,17 +430,22 @@ function friendlyError(status, detail) {
   if (status === 404) {
     // A retired model still appears in the models list but refuses to run, so
     // "check the list" is bad advice here — name a model that actually works.
+    const name = forModel || model();
     const retired = /no longer available/i.test(googleMessage);
     return retired
-      ? `The Gemini model "${model()}" has been retired by Google (${googleMessage.trim()}) Set LOOPNZ_GEMINI_MODEL=gemini-flash-latest in your .env, or run "npm run check-ai" to test which models your key can use.`
-      : `Gemini model "${model()}" was not found. Run "npm run check-ai" to test which models your key can use, then set LOOPNZ_GEMINI_MODEL in .env. Google said: ${googleMessage}`;
+      ? `The Gemini model "${name}" has been retired by Google (${googleMessage.trim()}) Set WASTEOPS_GEMINI_MODEL=gemini-flash-latest in your .env, or run "npm run check-ai" to test which models your key can use.`
+      : `Gemini model "${name}" was not found. Run "npm run check-ai" to test which models your key can use, then set WASTEOPS_GEMINI_MODEL in .env. Google said: ${googleMessage}`;
   }
   if (status === 429) {
-    // Two very different causes, and the fix differs, so distinguish them.
-    const quota = /quota|billing/i.test(googleMessage);
-    return quota
-      ? `Gemini quota exceeded for "${model()}". The Pro models are not usable on a free key — set LOOPNZ_GEMINI_MODEL=gemini-flash-latest in your .env.`
-      : 'Gemini rate limit hit (too many requests per minute). Wait a minute and try again.';
+    // Google returns 429 with the same "quota" wording for two different
+    // situations, so don't assert which one it is — give both fixes, cheapest
+    // first. (The per-minute limit is by far the more common one.)
+    return (
+      `Gemini free-tier limit hit on "${forModel || model()}". Usually this just means too many ` +
+      `requests in a minute — wait 60 seconds and try again. If it persists, the model ` +
+      `may have little or no free quota (the Pro models are like this): set ` +
+      `WASTEOPS_GEMINI_MODEL=gemini-flash-latest or gemini-flash-lite-latest in your .env.`
+    );
   }
   return `Gemini request failed (${status}). ${googleMessage}`;
 }
