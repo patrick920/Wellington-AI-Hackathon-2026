@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Your API key lives here — never commit it
+.env
+
+# The generated demo database. Delete this file to reset the app to seed data.
+data/db.json
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/

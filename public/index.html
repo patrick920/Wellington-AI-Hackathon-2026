@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en-NZ">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LoopNZ — Turning primary industry waste into resource</title>
+  <meta name="description" content="LoopNZ matches New Zealand primary-industry waste producers with the people who can use that material, with an AI assistant that searches, matches and explains.">
+
+  <!-- Inline SVG favicon: a recycling-green circle. No external files needed. -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♻️</text></svg>">
+
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<!-- ========================================================================
+     TOP NAVIGATION
+     The `data-route` attribute on each link is what the router reads to
+     highlight the active page.
+     ===================================================================== -->
+<header class="topbar">
+  <a href="#/" class="brand" aria-label="LoopNZ home">
+    <span class="brand-mark">♻</span>
+    <span class="brand-text">Loop<strong>NZ</strong></span>
+  </a>
+
+  <nav class="nav" id="mainNav">
+    <a href="#/browse"     data-route="browse">Browse</a>
+    <a href="#/match"      data-route="match">Match</a>
+    <a href="#/list-waste" data-route="list-waste">List waste</a>
+    <a href="#/wanted"     data-route="wanted">Wanted</a>
+    <a href="#/impact"     data-route="impact">Impact</a>
+    <a href="#/sdg"        data-route="sdg">UN Goals</a>
+    <a href="#/dashboard"  data-route="dashboard">Dashboard</a>
+  </nav>
+
+  <div class="topbar-actions">
+    <!-- Shows whether the real Claude API is connected or we're in offline mode -->
+    <span class="ai-badge" id="aiBadge" title="AI status">
+      <span class="dot"></span><span class="ai-badge-text">AI</span>
+    </span>
+    <button class="btn btn-ghost btn-icon" id="themeToggle" title="Toggle light / dark" aria-label="Toggle theme">◐</button>
+    <button class="btn btn-primary" id="openChatBtn">Ask Kōwhai&nbsp;<span class="sparkle">✦</span></button>
+    <button class="btn btn-ghost btn-icon nav-toggle" id="navToggle" aria-label="Menu">☰</button>
+  </div>
+</header>
+
+<!-- ========================================================================
+     PAGE CONTENT
+     Every page renders into this element. See public/js/pages/*.js
+     ===================================================================== -->
+<main id="app" class="app"></main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div>
+      <strong>LoopNZ</strong> · AI Hackathon 2026 · Built for Aotearoa's primary industries
+    </div>
+    <div class="footer-links">
+      <a href="#/impact">Impact</a>
+      <a href="#/sdg">UN Goals</a>
+      <button class="linklike" id="resetDemoBtn">Reset demo data</button>
+    </div>
+  </div>
+</footer>
+
+<!-- ========================================================================
+     AI CHAT PANEL
+     Slides in from the right. Available on every page, and able to drive the
+     rest of the site through "actions" returned by the server.
+     ===================================================================== -->
+<div class="chat-panel" id="chatPanel" aria-hidden="true">
+  <div class="chat-header">
+    <div class="chat-title">
+      <span class="chat-avatar">✦</span>
+      <div>
+        <div class="chat-name">Kōwhai</div>
+        <div class="chat-sub" id="chatStatus">Your circular-economy matchmaker</div>
+      </div>
+    </div>
+    <button class="btn btn-ghost btn-icon" id="closeChatBtn" aria-label="Close chat">✕</button>
+  </div>
+
+  <!-- Quick-start prompts: one per user type from the planning document -->
+  <div class="chat-suggestions" id="chatSuggestions">
+    <button data-prompt="I run a kiwifruit packhouse in Te Puke and we throw out about 40 tonnes of skin and pomace a week. What are my options?">I have waste to get rid of</button>
+    <button data-prompt="I'm looking for a calcium carbonate source near Christchurch to correct soil pH on our farm.">I know what I want</button>
+    <button data-prompt="I want to start a small business making compostable packaging but I don't know what raw material to use. Can you help me work it out?">Help me figure out what I need</button>
+    <button data-prompt="What's the total environmental impact of everything currently listed on LoopNZ?">Show me the impact numbers</button>
+  </div>
+
+  <div class="chat-messages" id="chatMessages"></div>
+
+  <!-- Shows what the AI is doing to the website in real time -->
+  <div class="chat-actions-strip" id="chatActionsStrip" hidden></div>
+
+  <form class="chat-input" id="chatForm">
+    <textarea id="chatInput" rows="1" placeholder="Ask about waste, materials, or your project…" autocomplete="off"></textarea>
+    <button class="btn btn-primary btn-icon" type="submit" id="chatSend" aria-label="Send">➤</button>
+  </form>
+</div>
+<div class="chat-scrim" id="chatScrim" hidden></div>
+
+<!-- Listing detail drawer, populated by js/components.js -->
+<div class="drawer" id="listingDrawer" aria-hidden="true"></div>
+<div class="drawer-scrim" id="drawerScrim" hidden></div>
+
+<!-- Transient toast notifications -->
+<div class="toasts" id="toasts"></div>
+
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>
