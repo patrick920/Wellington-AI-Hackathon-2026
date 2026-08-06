@@ -16,16 +16,19 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
-# Install the Anthropic SDK the first time only.
+# No install is needed for the default AI provider (Google Gemini) - it uses
+# plain fetch. The optional Anthropic SDK is only for the Claude provider, so
+# never let npm failing stop the app from starting.
 if [ ! -d "node_modules" ]; then
-  echo "  First run - installing dependencies..."
-  npm install
+  echo "  Installing optional dependencies (safe to skip if this fails)..."
+  npm install --no-audit --no-fund || echo "  (skipped - the Gemini provider does not need it)"
   echo ""
 fi
 
 if [ ! -f ".env" ]; then
   echo "  NOTE: No .env file found, so the chatbot will use the offline assistant."
-  echo "        To enable Claude: cp .env.example .env  then add your API key."
+  echo "        For the full AI: cp .env.example .env  then add a free"
+  echo "        Gemini key from https://aistudio.google.com/apikey"
   echo ""
 fi
 

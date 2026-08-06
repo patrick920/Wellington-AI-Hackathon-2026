@@ -71,18 +71,28 @@ function initChrome() {
   });
 }
 
-/** Show whether we're talking to the real Claude API or the offline fallback. */
+/**
+ * Show which AI provider is live (Gemini, Claude) or that we're running the
+ * built-in offline assistant. The tooltip is written to be actionable — if
+ * there's no key, it says which one to set and where to get it.
+ */
 function updateAiBadge(meta) {
   const badge = document.getElementById('aiBadge');
   const label = badge.querySelector('.ai-badge-text');
-  if (meta.ai.available) {
+  const ai = meta.ai;
+
+  if (ai.available) {
     badge.classList.add('live');
-    label.textContent = 'AI live';
-    badge.title = `Connected to ${meta.ai.model} (effort: ${meta.ai.effort})`;
+    // Short name for the badge itself; the topbar is tight on space.
+    label.textContent = ai.id === 'gemini' ? 'Gemini' : ai.id === 'claude' ? 'Claude' : 'AI live';
+    badge.title = `${ai.label} — ${ai.model}${ai.effort ? ` (effort: ${ai.effort})` : ''}`;
   } else {
     badge.classList.add('offline');
     label.textContent = 'Demo AI';
-    badge.title = 'No ANTHROPIC_API_KEY set — using the built-in offline assistant. See the README.';
+    badge.title =
+      `No API key found — using the built-in offline assistant.\n` +
+      `For the full experience, set ${ai.suggestedEnvVar} in .env.\n` +
+      `Free key: ${ai.suggestedKeyUrl}`;
   }
 }
 

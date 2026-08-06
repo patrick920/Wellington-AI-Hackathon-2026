@@ -6,12 +6,14 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "dev": "node --watch server/server.js"
+    "dev": "node --watch server/server.js",
+    "check-ai": "node server/check-ai.js"
   },
   "engines": {
     "node": ">=18.0.0"
   },
-  "dependencies": {
+  "//": "The default provider (Google Gemini) uses plain fetch and needs NO dependencies at all — the app runs with just `node server/server.js`. The Anthropic SDK below is only needed if you switch to the Claude provider, which is why it is optional: `npm install` failing will not stop the app working.",
+  "optionalDependencies": {
     "@anthropic-ai/sdk": "^0.32.1"
   },
   "keywords": [

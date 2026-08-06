@@ -20,7 +20,19 @@
  * Christchurch", the AI actually runs the search, then actually navigates the
  * page and applies the filters — the human sees the site respond.
  *
- * WITHOUT AN API KEY:
+ * PROVIDERS:
+ * This file owns everything that is the SAME whichever AI you use — the tool
+ * definitions, the code that executes them, and the system prompt. The parts
+ * that differ live in providers/:
+ *
+ *   providers/gemini.js  — Google AI Studio. THE DEFAULT (has a free tier).
+ *   providers/claude.js  — Anthropic Claude. Opt-in, needs paid API credits.
+ *
+ * Both expose the same `runTurn()` contract, so adding a third provider means
+ * writing one file and adding it to the PROVIDERS list below — nothing else in
+ * the app changes.
+ *
+ * WITHOUT ANY API KEY:
  * Everything still works. `runFallbackAssistant()` is a local, rule-based
  * assistant that uses the same tools. It is obviously less clever, but it
  * means your demo never dies because the wifi did.
@@ -33,49 +45,97 @@ import {
 import { CATEGORIES, UNITS, FREQUENCIES } from './seed.js';
 import { REGIONS } from './regions.js';
 
-/** Which Claude model to use. Opus 5 is the most capable current model. */
-const MODEL = process.env.LOOPNZ_MODEL || 'claude-opus-5';
+import * as gemini from './providers/gemini.js';
+import * as claude from './providers/claude.js';
 
 /**
- * Effort controls how much the model thinks before answering.
- * 'low' = snappiest (good for live demos), 'high' = most thorough.
- * Override with LOOPNZ_EFFORT=high in your .env if you want deeper answers.
+ * Providers in PREFERENCE ORDER. When LOOPNZ_PROVIDER is not set, the first
+ * one that has an API key configured wins — so Gemini is the default, and
+ * Claude is used only if you have an Anthropic key and no Gemini one.
+ *
+ * To force a specific provider regardless, set LOOPNZ_PROVIDER=claude
+ * (or =gemini, or =offline) in your .env.
  */
-const EFFORT = process.env.LOOPNZ_EFFORT || 'medium';
+const PROVIDERS = [gemini, claude];
 
-/** Cached SDK client, created lazily on first use. */
-let client = null;
-let clientLoadAttempted = false;
+/** Cached result of provider selection, plus a one-time startup log. */
+let selected = undefined;
 
 /**
- * Try to create an Anthropic SDK client.
- * Returns null if the SDK is not installed or there is no API key — in which
- * case the caller falls back to the offline assistant.
+ * Work out which provider to use.
+ * Returns the provider module, or null to mean "use the offline assistant".
  */
-async function getClient() {
-  if (client) return client;
-  if (clientLoadAttempted) return client;
-  clientLoadAttempted = true;
+async function pickProvider() {
+  if (selected !== undefined) return selected;
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.log('[ai] No ANTHROPIC_API_KEY found — running in offline demo mode.');
-    return null;
+  const forced = (process.env.LOOPNZ_PROVIDER || '').trim().toLowerCase();
+
+  if (forced === 'offline' || forced === 'none') {
+    console.log('[ai] LOOPNZ_PROVIDER=offline — using the built-in demo assistant.');
+    selected = null;
+    return selected;
   }
-  try {
-    // Dynamic import so a missing node_modules folder does not crash the server.
-    const { default: Anthropic } = await import('@anthropic-ai/sdk');
-    client = new Anthropic(); // reads ANTHROPIC_API_KEY from the environment
-    console.log(`[ai] Anthropic SDK ready. Model: ${MODEL}, effort: ${EFFORT}`);
-    return client;
-  } catch (err) {
-    console.log('[ai] @anthropic-ai/sdk not installed (run "npm install") — offline demo mode.');
-    return null;
+
+  if (forced) {
+    const match = PROVIDERS.find(p => p.id === forced);
+    if (!match) {
+      console.log(`[ai] Unknown LOOPNZ_PROVIDER "${forced}". Valid values: ${PROVIDERS.map(p => p.id).join(', ')}, offline.`);
+      selected = null;
+      return selected;
+    }
+    if (!(await providerReady(match))) {
+      console.log(`[ai] LOOPNZ_PROVIDER=${forced} but it is not configured. Set ${match.describe().envVar} in .env — key from ${match.keyUrl}`);
+      selected = null;
+      return selected;
+    }
+    selected = match;
+    console.log(`[ai] Using ${match.label} (${match.model()}) — set by LOOPNZ_PROVIDER.`);
+    return selected;
   }
+
+  // No explicit choice: take the first configured provider in preference order.
+  for (const provider of PROVIDERS) {
+    if (await providerReady(provider)) {
+      selected = provider;
+      console.log(`[ai] Using ${provider.label} (${provider.model()}).`);
+      return selected;
+    }
+  }
+
+  console.log('[ai] No AI API key found — running the built-in offline demo assistant.');
+  console.log(`[ai] For the full experience, put GEMINI_API_KEY in .env (free key: ${gemini.keyUrl}).`);
+  selected = null;
+  return selected;
 }
 
-/** True if the real Claude API is available right now. */
-export async function aiAvailable() {
-  return (await getClient()) !== null;
+/**
+ * Is this provider usable? Gemini only needs a key; Claude also needs its SDK
+ * to be installed, so it exposes an async isAvailable().
+ */
+async function providerReady(provider) {
+  if (typeof provider.isAvailable === 'function') return provider.isAvailable();
+  return provider.isConfigured();
+}
+
+/**
+ * Describe the active AI setup for /api/meta, so the UI badge can show which
+ * provider is live (or that we are in offline mode).
+ */
+export async function aiStatus() {
+  const provider = await pickProvider();
+  if (!provider) {
+    return {
+      available: false,
+      provider: 'offline',
+      label: 'Offline demo assistant',
+      model: 'built-in rules',
+      // Tell the UI where to get a key so the badge tooltip is actionable.
+      suggestedProvider: gemini.label,
+      suggestedEnvVar: 'GEMINI_API_KEY',
+      suggestedKeyUrl: gemini.keyUrl
+    };
+  }
+  return { available: true, ...provider.describe() };
 }
 
 // ---------------------------------------------------------------------------
@@ -83,9 +143,9 @@ export async function aiAvailable() {
 // ---------------------------------------------------------------------------
 
 /**
- * The tool schemas handed to Claude.
+ * The tool schemas handed to the model.
  *
- * Each description is written prescriptively — it tells Claude *when* to call
+ * Each description is written prescriptively — it tells the model *when* to call
  * the tool, not just what it does. That matters: vague descriptions are the
  * number one cause of a model failing to use a tool it should have used.
  */
@@ -512,108 +572,40 @@ The user is currently on the "${pageContext || 'home'}" page.`;
 export async function chat(history, userMessage, pageContext) {
   logChat('user', userMessage);
 
-  const anthropic = await getClient();
-  if (!anthropic) {
+  const provider = await pickProvider();
+
+  // No provider configured — go straight to the built-in assistant.
+  if (!provider) {
     const fb = runFallbackAssistant(userMessage, pageContext);
     logChat('assistant', fb.reply);
-    return { ...fb, offline: true };
+    return { ...fb, offline: true, provider: 'offline' };
   }
 
   try {
-    const out = await runClaude(anthropic, history, userMessage, pageContext);
-    logChat('assistant', out.reply);
-    return { ...out, offline: false };
-  } catch (err) {
-    console.error('[ai] Claude call failed:', err?.message || err);
-    // Never let an API failure kill the demo — degrade to the offline brain.
-    const fb = runFallbackAssistant(userMessage, pageContext);
-    fb.reply = `_(Claude is unavailable right now — ${err?.message || 'network error'}. Falling back to the built-in assistant.)_\n\n` + fb.reply;
-    logChat('assistant', fb.reply);
-    return { ...fb, offline: true };
-  }
-}
-
-/**
- * The real Claude call, including the agentic tool loop:
- *   ask Claude -> it requests tools -> we run them -> feed results back -> repeat
- * until it stops asking for tools and produces a final answer.
- */
-async function runClaude(anthropic, history, userMessage, pageContext) {
-  // Rebuild the message list. We only keep the last 12 turns to control cost.
-  const messages = history
-    .slice(-12)
-    .filter(m => m && m.content)
-    .map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content) }));
-
-  messages.push({ role: 'user', content: userMessage });
-
-  const actions = [];
-  const toolsUsed = [];
-  const MAX_ITERATIONS = 6; // safety valve so a confused model cannot loop forever
-
-  for (let i = 0; i < MAX_ITERATIONS; i++) {
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 8000,
-      system: [
-        {
-          type: 'text',
-          text: buildSystemPrompt(pageContext),
-          // Cache the system prompt + tool definitions: they are identical on
-          // every request, so we only pay full price for them once.
-          cache_control: { type: 'ephemeral' }
-        }
-      ],
-      output_config: { effort: EFFORT },
+    const out = await provider.runTurn({
+      system: buildSystemPrompt(pageContext),
       tools: TOOLS,
-      messages
+      // Keep only the last 12 turns, to control token cost and latency.
+      history: history.slice(-12),
+      userMessage,
+      runTool: executeTool,
+      maxIterations: 6 // safety valve so a confused model cannot loop forever
     });
-
-    // Claude has finished when it stops asking for tools.
-    if (response.stop_reason !== 'tool_use') {
-      // Safety classifiers can decline a request — handle it rather than
-      // reading content[0] and crashing on an empty array.
-      if (response.stop_reason === 'refusal') {
-        return { reply: "I can't help with that particular request, but I'm happy to help you find or list waste material.", actions, toolsUsed };
-      }
-      const reply = response.content
-        .filter(b => b.type === 'text')
-        .map(b => b.text)
-        .join('\n')
-        .trim();
-      return { reply: reply || 'Done.', actions, toolsUsed };
-    }
-
-    // Echo the assistant's turn back (required — it contains the tool_use blocks)
-    messages.push({ role: 'assistant', content: response.content });
-
-    // Run every tool Claude asked for, and collect the results into ONE user
-    // message (splitting them teaches the model to stop calling tools in parallel).
-    const toolResults = [];
-    for (const block of response.content) {
-      if (block.type !== 'tool_use') continue;
-      toolsUsed.push(block.name);
-      let outcome;
-      try {
-        outcome = executeTool(block.name, block.input || {});
-      } catch (err) {
-        outcome = { result: { error: err.message } };
-      }
-      if (outcome.action) actions.push(outcome.action);
-      toolResults.push({
-        type: 'tool_result',
-        tool_use_id: block.id,
-        content: JSON.stringify(outcome.result)
-      });
-    }
-    messages.push({ role: 'user', content: toolResults });
+    logChat('assistant', out.reply);
+    return { ...out, offline: false, provider: provider.id };
+  } catch (err) {
+    console.error(`[ai] ${provider.label} call failed:`, err?.message || err);
+    // Never let an API failure kill the demo — degrade to the offline brain,
+    // but show the real error so the problem is fixable rather than mysterious.
+    const fb = runFallbackAssistant(userMessage, pageContext);
+    // Trim any trailing full stop so we don't end up with ".." in the notice.
+    const reason = String(err?.message || 'network error').replace(/\.\s*$/, '');
+    fb.reply =
+      `_(${provider.label} is unavailable right now — ${reason}. ` +
+      `Falling back to the built-in assistant.)_\n\n` + fb.reply;
+    logChat('assistant', fb.reply);
+    return { ...fb, offline: true, provider: 'offline' };
   }
-
-  return {
-    reply: 'I looked into that but ran out of steps before finishing. Could you narrow the question slightly?',
-    actions,
-    toolsUsed
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -623,7 +615,7 @@ async function runClaude(anthropic, history, userMessage, pageContext) {
 /**
  * A deterministic, keyword-driven assistant that runs entirely locally.
  *
- * It uses the SAME tools as Claude, so it can still search the marketplace,
+ * It uses the SAME tools as the real providers, so it can still search the marketplace,
  * apply filters and navigate the site — just with hand-written intent detection
  * instead of a language model. This guarantees the demo works offline.
  */
@@ -769,5 +761,8 @@ export function runFallbackAssistant(message, pageContext) {
   };
 }
 
-/** Exported for the /api/meta endpoint so the UI can show AI status. */
-export const AI_CONFIG = { model: MODEL, effort: EFFORT };
+/**
+ * Exported so `npm run check-ai` can reach the provider modules without
+ * duplicating the selection logic.
+ */
+export { PROVIDERS, pickProvider };

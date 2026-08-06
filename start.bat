@@ -20,18 +20,20 @@ if errorlevel 1 (
   exit /b 1
 )
 
-REM Install the Anthropic SDK the first time only.
-REM If this fails you can still run the app - it falls back to the offline assistant.
+REM No install is needed for the default AI provider (Google Gemini) - it uses
+REM plain fetch. The optional Anthropic SDK is only for the Claude provider,
+REM so we never block startup on npm.
 if not exist "node_modules" (
-  echo   First run - installing dependencies...
-  call npm install
+  echo   Installing optional dependencies ^(safe to skip if this fails^)...
+  call npm install --no-audit --no-fund
   echo.
 )
 
 REM Remind the user to add an API key if they have not
 if not exist ".env" (
   echo   NOTE: No .env file found, so the chatbot will use the offline assistant.
-  echo         To enable Claude: copy .env.example to .env and add your API key.
+  echo         For the full AI: copy .env.example to .env and add a free
+  echo         Gemini key from https://aistudio.google.com/apikey
   echo.
 )
 

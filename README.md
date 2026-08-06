@@ -19,15 +19,16 @@ chmod +x start.sh     # first time only
 
 ### Any platform, manually
 ```bash
-npm install           # installs one dependency: the Anthropic SDK
-npm start
+node server/server.js     # no npm install required
 ```
 
 Then open **http://localhost:3000**
 
-> **You do not need an API key to run it.** Without one, the chatbot falls back to a
-> built-in offline assistant that can still search the marketplace, apply filters and
-> navigate the site. To get the real Claude experience, see [Enabling the AI](#enabling-the-ai).
+> **You do not need an API key or `npm install` to run it.** The default AI provider
+> (Google Gemini) talks to a REST API with plain `fetch`, so the app runs with zero
+> dependencies. Without a key, the chatbot falls back to a built-in offline assistant that
+> can still search the marketplace, apply filters and navigate the site.
+> See [Enabling the AI](#enabling-the-ai) for the free key.
 
 ---
 
@@ -104,16 +105,41 @@ it used — worth pointing at during the pitch.
 
 ## Enabling the AI
 
-1. Get a key from <https://console.anthropic.com/settings/keys>
+The default provider is **Google Gemini**, because AI Studio gives out a free API key with
+no credit card required.
+
+1. Get a free key from <https://aistudio.google.com/apikey>
 2. Copy `.env.example` to `.env`
+   - Windows: `copy .env.example .env`
+   - Mac/Linux: `cp .env.example .env`
 3. Paste your key in:
    ```
-   ANTHROPIC_API_KEY=sk-ant-...
+   GEMINI_API_KEY=your-key-here
    ```
-4. Restart the server.
+4. Restart the server, then confirm it works:
+   ```bash
+   npm run check-ai
+   ```
 
-The badge in the top-right corner tells you which mode you're in — **AI LIVE** (green) or
-**DEMO AI** (amber).
+`check-ai` reports which provider is active, lists the model names your key can actually
+use, and sends one real message through the full tool loop — so you find out about a
+problem there rather than during your pitch.
+
+The badge in the top-right corner shows which brain is answering: **GEMINI** or **CLAUDE**
+(green) when a provider is live, **DEMO AI** (amber) for the offline assistant.
+
+### Using Claude instead
+
+Claude is fully supported as an alternative, but the Anthropic API is **paid** — a
+Claude.ai Pro/Max subscription does *not* include API credits. If you have credits:
+
+```bash
+npm install                       # the Claude provider needs the Anthropic SDK
+```
+```
+ANTHROPIC_API_KEY=sk-ant-...
+LOOPNZ_PROVIDER=claude            # only needed if a Gemini key is also present
+```
 
 ### Configuration
 
@@ -121,10 +147,25 @@ All optional, all in `.env`:
 
 | Setting | Default | Notes |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | *(none)* | Without it, the offline assistant is used |
-| `LOOPNZ_MODEL` | `claude-opus-5` | Use `claude-sonnet-5` for lower cost |
-| `LOOPNZ_EFFORT` | `medium` | `low` for snappier demo replies, `high` for more thorough answers |
+| `GEMINI_API_KEY` | *(none)* | Free key from AI Studio. Also accepts `GOOGLE_API_KEY` |
+| `LOOPNZ_GEMINI_MODEL` | `gemini-2.5-flash` | Try `gemini-2.5-pro` for more capability. Run `npm run check-ai` to see valid names |
+| `ANTHROPIC_API_KEY` | *(none)* | Paid. Only needed for the Claude provider |
+| `LOOPNZ_CLAUDE_MODEL` | `claude-sonnet-5` | `claude-opus-5` is more capable, ~2.5× the cost |
+| `LOOPNZ_EFFORT` | `medium` | Claude only. `low` for snappier demo replies |
+| `LOOPNZ_PROVIDER` | *(auto)* | Force one: `gemini`, `claude`, or `offline` |
 | `PORT` | `3000` | Change if 3000 is taken |
+
+With no `LOOPNZ_PROVIDER` set, LoopNZ picks the first provider that has a key: Gemini,
+then Claude, then the offline assistant.
+
+### Adding another provider
+
+Each provider is one file in `server/providers/` exposing the same small contract
+(`isConfigured`, `describe`, `model`, `runTurn`). The tool definitions, the code that
+executes them, the system prompt and the entire front end are shared and never change —
+a new provider only has to translate the tool schema and the message shapes. See the
+comment block at the top of `server/providers/gemini.js`, which does exactly that
+translation for Gemini's `functionDeclarations` format.
 
 ---
 
@@ -167,12 +208,16 @@ competitors to still find the one buyer who genuinely needs your material.
 ```
 ├── start.bat / start.sh      One-click launchers
 ├── .env.example              Copy to .env and add your API key
-├── package.json              One dependency: @anthropic-ai/sdk
+├── package.json              No required dependencies (Anthropic SDK is optional)
 │
 ├── server/
 │   ├── server.js             HTTP server, static files, JSON API
 │   ├── db.js                 JSON-file database + search + the matching engine
-│   ├── ai.js                 Claude integration, tool definitions, offline fallback
+│   ├── ai.js                 Tool definitions, provider selection, offline fallback
+│   ├── providers/
+│   │   ├── gemini.js         Google Gemini — the default, zero dependencies
+│   │   └── claude.js         Anthropic Claude — opt-in, uses the official SDK
+│   ├── check-ai.js           `npm run check-ai` diagnostic
 │   ├── seed.js               28 realistic NZ waste streams + wanted posts + past deals
 │   └── regions.js            NZ regions with coordinates, distance maths
 │
@@ -265,8 +310,19 @@ The server isn't running. Run `npm start` and reload the page.
 Set `PORT=3001` in `.env`, or stop whatever else is using it.
 
 **Chat says "offline demo assistant"**
-No `ANTHROPIC_API_KEY` in `.env`, or `npm install` hasn't been run. Both are fine — the app
-still works.
+No API key found. Run `npm run check-ai` — it will tell you exactly what's missing. The
+most common cause is editing `.env.example` instead of `.env`; the app only reads `.env`.
+
+**"Gemini model ... was not found"**
+Model names change over time. Run `npm run check-ai` to list the ones your key can use,
+then set `LOOPNZ_GEMINI_MODEL` in `.env` to one of them.
+
+**"Gemini rejected the request (400)"**
+Usually a tool-schema problem — Gemini accepts only a subset of JSON Schema. See
+`toGeminiSchema()` in `server/providers/gemini.js`.
+
+**Gemini rate limit (429)**
+The free tier has per-minute limits. Wait a minute, or slow the demo down.
 
 **Changes to a JS or CSS file aren't showing up**
 Hard-reload the browser: `Ctrl+Shift+R` (or `Cmd+Shift+R` on Mac).
@@ -276,5 +332,6 @@ Delete `data/db.json` and restart. That restores the original seed data.
 
 ---
 
-Built with Node.js, vanilla HTML/CSS/JavaScript, and the Claude API. No build step, no
-bundler, no framework — open any file and read it.
+Built with Node.js and vanilla HTML/CSS/JavaScript, on the Google Gemini API (with
+Anthropic Claude as an alternative). No build step, no bundler, no framework — open any
+file and read it.

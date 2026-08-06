@@ -240,9 +240,11 @@ export async function sendMessage(text) {
       await runActions(result.actions);
     }
 
-    // Reflect offline mode in the header so it's never a mystery.
+    // Reflect the active provider in the header so it's never a mystery which
+    // brain answered — especially useful when a provider errors and we
+    // silently degrade to the offline assistant mid-demo.
     el.status().textContent = result.offline
-      ? 'Offline demo assistant (no API key)'
+      ? 'Offline demo assistant'
       : 'Your circular-economy matchmaker';
 
   } catch (err) {

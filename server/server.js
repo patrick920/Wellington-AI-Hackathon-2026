@@ -28,7 +28,7 @@ import {
 } from './db.js';
 import { CATEGORIES, UNITS, FREQUENCIES } from './seed.js';
 import { REGIONS } from './regions.js';
-import { chat, aiAvailable, AI_CONFIG } from './ai.js';
+import { chat, aiStatus } from './ai.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
@@ -161,7 +161,7 @@ async function handleApi(req, res, url) {
       regions: REGIONS,
       units: UNITS,
       frequencies: FREQUENCIES,
-      ai: { available: await aiAvailable(), ...AI_CONFIG }
+      ai: await aiStatus()
     });
   }
 
@@ -329,8 +329,7 @@ const server = http.createServer(async (req, res) => {
 // Make sure the database exists before we accept any traffic.
 loadDb();
 
-server.listen(PORT, () => {
-  const hasKey = Boolean(process.env.ANTHROPIC_API_KEY);
+server.listen(PORT, async () => {
   console.log('');
   console.log('  ╭──────────────────────────────────────────────────────────╮');
   console.log('  │                                                          │');
@@ -339,7 +338,11 @@ server.listen(PORT, () => {
   console.log('  ╰──────────────────────────────────────────────────────────╯');
   console.log('');
   console.log(`   Running at:  http://localhost:${PORT}`);
-  console.log(`   AI mode:     ${hasKey ? `Claude (${AI_CONFIG.model}, effort: ${AI_CONFIG.effort})` : 'Offline demo assistant — set ANTHROPIC_API_KEY in .env for full AI'}`);
+
+  // aiStatus() also triggers provider selection, which logs its own reasoning
+  // (which provider it chose, or why it fell back to offline mode).
+  const ai = await aiStatus();
+  console.log(`   AI mode:     ${ai.available ? `${ai.label} — ${ai.model}` : 'Offline demo assistant'}`);
   console.log('');
   console.log('   Press Ctrl+C to stop.');
   console.log('');
